@@ -1,0 +1,18 @@
+# Triage policy: what pages people. Deterministic - the LLM never decides urgency.
+urgent:
+  urgent_severities: [Critical]          # always urgent (re-alerted at most every realert_after_days)
+  high_categories_if_new:                # High findings in these categories are urgent when NEW or ESCALATED
+    [Replication, DCHealth, SYSVOL, Backup, FSMO, Time, DNS, Collector]
+  min_coverage_percent: 80               # below this the run is mostly blind -> urgent
+  max_report_age_days: 35                # no report for this long -> "collector silent" alert
+  score_drop_points: 15                  # month-over-month score drop that is urgent on its own
+  realert_after_days: 7                  # throttle for repeated alerts on the same finding
+
+# Accepted risks. Suppressed findings still count toward the score and stay in the full report,
+# but are not alerted and are listed separately in the digest. Critical findings cannot be suppressed.
+# id = finding id from report.json (checkId|target, case-insensitive). Expired entries are flagged.
+suppressions: []
+#  - id: "HYG-013|contoso.com"
+#    reason: "Windows 10 ESU enrolled through 2026-10; migration tracked in CHG0012345"
+#    owner: "endpoint-team@contoso.com"
+#    expires: 2026-10-31

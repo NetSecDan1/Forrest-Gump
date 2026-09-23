@@ -1,0 +1,3 @@
+"sAMAccountName","objectClass","lastLogonTimestamp","operatingSystem","whenCreated","distinguishedName"
+"olduser1","user","2026-03-07","","09/23/2023 13:08:59","CN=olduser1,OU=Test,DC=contoso,DC=test"
+"olduser2","user","2026-03-07","","09/23/2023 13:08:59","CN=olduser2,OU=Test,DC=contoso,DC=test"

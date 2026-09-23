@@ -1,0 +1,4 @@
+"domain","group","member","enabled","objectClass"
+"contoso.test","Domain Admins","admin1","True","user"
+"contoso.test","Domain Admins","svc_sql_admin","True","user"
+"contoso.test","Schema Admins","admin1","True","user"

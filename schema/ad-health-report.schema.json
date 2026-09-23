@@ -1,0 +1,302 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ad-health-report/1.0",
+  "title": "Report",
+  "description": "Contract between Invoke-ADForestHealthReport.ps1 (producer) and adhealth-agent (consumer). Generated from agent/adhealth_agent/models.py; additive fields are allowed within 1.x.",
+  "$defs": {
+    "Check": {
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "category": {
+          "title": "Category",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "Pass",
+            "Warn",
+            "Fail",
+            "Partial",
+            "Error",
+            "Skipped"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "summary": {
+          "default": "",
+          "title": "Summary",
+          "type": "string"
+        },
+        "findingCount": {
+          "default": 0,
+          "title": "Findingcount",
+          "type": "integer"
+        },
+        "durationMs": {
+          "default": 0,
+          "title": "Durationms",
+          "type": "integer"
+        },
+        "command": {
+          "default": "",
+          "title": "Command",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "category",
+        "name",
+        "status"
+      ],
+      "title": "Check",
+      "type": "object"
+    },
+    "Finding": {
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "checkId": {
+          "title": "Checkid",
+          "type": "string"
+        },
+        "category": {
+          "title": "Category",
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "Critical",
+            "High",
+            "Medium",
+            "Low",
+            "Info"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "target": {
+          "default": "forest",
+          "title": "Target",
+          "type": "string"
+        },
+        "count": {
+          "default": 1,
+          "title": "Count",
+          "type": "integer"
+        },
+        "detail": {
+          "default": "",
+          "title": "Detail",
+          "type": "string"
+        },
+        "recommendation": {
+          "default": "",
+          "title": "Recommendation",
+          "type": "string"
+        },
+        "evidenceRef": {
+          "default": "",
+          "title": "Evidenceref",
+          "type": "string"
+        },
+        "sample": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Sample",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "checkId",
+        "category",
+        "severity",
+        "title"
+      ],
+      "title": "Finding",
+      "type": "object"
+    },
+    "Forest": {
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "rootDomain": {
+          "default": "",
+          "title": "Rootdomain",
+          "type": "string"
+        },
+        "forestMode": {
+          "default": "",
+          "title": "Forestmode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "Forest",
+      "type": "object"
+    },
+    "Summary": {
+      "additionalProperties": true,
+      "properties": {
+        "overallStatus": {
+          "enum": [
+            "Red",
+            "Amber",
+            "Green"
+          ],
+          "title": "Overallstatus",
+          "type": "string"
+        },
+        "healthScore": {
+          "title": "Healthscore",
+          "type": "integer"
+        },
+        "checkCoveragePercent": {
+          "title": "Checkcoveragepercent",
+          "type": "number"
+        },
+        "collectionErrorCount": {
+          "default": 0,
+          "title": "Collectionerrorcount",
+          "type": "integer"
+        },
+        "domainControllerCount": {
+          "default": 0,
+          "title": "Domaincontrollercount",
+          "type": "integer"
+        },
+        "domainCount": {
+          "default": 0,
+          "title": "Domaincount",
+          "type": "integer"
+        },
+        "checkCount": {
+          "default": 0,
+          "title": "Checkcount",
+          "type": "integer"
+        },
+        "scoped": {
+          "default": false,
+          "title": "Scoped",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "overallStatus",
+        "healthScore",
+        "checkCoveragePercent"
+      ],
+      "title": "Summary",
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "properties": {
+    "schemaVersion": {
+      "title": "Schemaversion",
+      "type": "string"
+    },
+    "reportType": {
+      "const": "ADForestHealth",
+      "title": "Reporttype",
+      "type": "string"
+    },
+    "reportId": {
+      "title": "Reportid",
+      "type": "string"
+    },
+    "generatedUtc": {
+      "format": "date-time",
+      "title": "Generatedutc",
+      "type": "string"
+    },
+    "collector": {
+      "additionalProperties": true,
+      "title": "Collector",
+      "type": "object"
+    },
+    "summary": {
+      "$ref": "#/$defs/Summary"
+    },
+    "forest": {
+      "$ref": "#/$defs/Forest"
+    },
+    "domains": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Domains",
+      "type": "array"
+    },
+    "domainControllers": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Domaincontrollers",
+      "type": "array"
+    },
+    "metrics": {
+      "additionalProperties": {
+        "type": "number"
+      },
+      "title": "Metrics",
+      "type": "object"
+    },
+    "checks": {
+      "items": {
+        "$ref": "#/$defs/Check"
+      },
+      "title": "Checks",
+      "type": "array"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/Finding"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "errors": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Errors",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "reportType",
+    "reportId",
+    "generatedUtc",
+    "summary",
+    "forest"
+  ],
+  "type": "object"
+}

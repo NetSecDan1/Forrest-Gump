@@ -1,0 +1,43 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  agent-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        working-directory: agent
+        run: pip install -e ".[dev,llm]"
+      - name: Test
+        working-directory: agent
+        run: PYTHONPATH=tests python -m pytest -q
+
+  collector-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Smoke test collector against mock AD (sudo to bind DC ports on loopback)
+        run: sudo pwsh -NoProfile -File collector/tests/Invoke-CollectorSmokeTest.ps1
+
+  collector-lint:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PSScriptAnalyzer (Error + Warning)
+        shell: pwsh
+        run: |
+          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser
+          $r = Invoke-ScriptAnalyzer -Path collector, deploy -Recurse -Severity Error, Warning `
+                 -ExcludeRule PSAvoidUsingWriteHost, PSUseShouldProcessForStateChangingFunctions
+          $r | Format-Table -AutoSize | Out-String -Width 200 | Write-Output
+          if ($r | Where-Object Severity -eq 'Error') { exit 1 }

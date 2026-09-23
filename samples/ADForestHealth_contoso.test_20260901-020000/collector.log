@@ -1,0 +1,56 @@
+2026-09-01T02:00:00Z [INFO] Collector 1.0.0 starting. Forest=contoso.test Output=/tmp/claude-0/smoke2
+2026-09-01T02:00:00Z [INFO] Discovery: 1 domain(s), 3 DC(s) in scope.
+2026-09-01T02:00:00Z [INFO] START FOREST-001 Forest configuration (functional level, Recycle Bin, tombstone lifetime)
+2026-09-01T02:00:00Z [INFO] END   FOREST-001 status=Warn findings=2 ms=49
+2026-09-01T02:00:00Z [INFO] START DC-001 DC network reachability (LDAP 389, Kerberos 88, SMB 445, RPC 135, GC 3268, DNS 53, WinRM 5985)
+2026-09-01T02:00:00Z [INFO] END   DC-001 status=Fail findings=1 ms=99
+2026-09-01T02:00:00Z [INFO] START DC-002 LDAP RootDSE bind and clock offset per DC
+2026-09-01T02:00:00Z [INFO] END   DC-002 status=Pass findings=0 ms=33
+2026-09-01T02:00:00Z [INFO] START TIME-001 DC clock offset relative to forest-root PDC emulator
+2026-09-01T02:00:00Z [INFO] END   TIME-001 status=Fail findings=1 ms=19
+2026-09-01T02:00:00Z [INFO] START TIME-002 Forest-root PDC emulator time source
+2026-09-01T02:00:00Z [ERROR] [TIME-002] check :: w32tm.exe not found on collector host (install RSAT AD DS tools).
+2026-09-01T02:00:00Z [INFO] END   TIME-002 status=Error findings=0 ms=148
+2026-09-01T02:00:00Z [INFO] START FSMO-001 FSMO role holders exist in DC inventory and are reachable
+2026-09-01T02:00:00Z [INFO] END   FSMO-001 status=Pass findings=0 ms=14
+2026-09-01T02:00:00Z [INFO] START DC-003 Domain controller operating system lifecycle
+2026-09-01T02:00:00Z [INFO] END   DC-003 status=Fail findings=2 ms=10
+2026-09-01T02:00:00Z [INFO] SKIP  DC-004 DC services, disk free space and uptime (CIM/WinRM, DCOM fallback)
+2026-09-01T02:00:00Z [INFO] START REPL-001 Inbound replication partner metadata (last success, consecutive failures)
+2026-09-01T02:00:00Z [INFO] END   REPL-001 status=Fail findings=1 ms=32
+2026-09-01T02:00:00Z [INFO] START REPL-002 Replication failure records
+2026-09-01T02:00:00Z [INFO] END   REPL-002 status=Fail findings=1 ms=11
+2026-09-01T02:00:00Z [INFO] START REPL-003 repadmin /showrepl cross-check (native tool vs cmdlets)
+2026-09-01T02:00:00Z [ERROR] [REPL-003] localhost :: repadmin.exe not found on collector host (install RSAT AD DS tools).
+2026-09-01T02:00:00Z [ERROR] [REPL-003] 127.0.0.2 :: repadmin.exe not found on collector host (install RSAT AD DS tools).
+2026-09-01T02:00:00Z [ERROR] [REPL-003] replsummary :: repadmin.exe not found on collector host (install RSAT AD DS tools).
+2026-09-01T02:00:00Z [INFO] END   REPL-003 status=Partial findings=0 ms=116
+2026-09-01T02:00:00Z [INFO] START SYSVOL-001 SYSVOL replication engine (FRS vs DFSR migration state)
+2026-09-01T02:00:00Z [INFO] END   SYSVOL-001 status=Pass findings=0 ms=6
+2026-09-01T02:00:00Z [INFO] START SYSVOL-002 SYSVOL/NETLOGON shares and DFSR replicated folder state per DC
+2026-09-01T02:00:00Z [INFO] END   SYSVOL-002 status=Fail findings=4 ms=7
+2026-09-01T02:00:00Z [INFO] START DNS-001 DC locator SRV records (domain DCs, PDC, GCs)
+2026-09-01T02:00:00Z [INFO] END   DNS-001 status=Fail findings=2 ms=23
+2026-09-01T02:00:00Z [INFO] START DNS-002 Per-DC DNS server consistency for DC locator records
+2026-09-01T02:00:00Z [INFO] END   DNS-002 status=Warn findings=2 ms=10
+2026-09-01T02:00:00Z [INFO] START BACKUP-001 Last backup per naming context (dSASignature metadata)
+2026-09-01T02:00:00Z [INFO] END   BACKUP-001 status=Fail findings=1 ms=54
+2026-09-01T02:00:00Z [INFO] SKIP  DCDIAG-001 dcdiag per DC (default tests, SystemLog skipped)
+2026-09-01T02:00:00Z [INFO] SKIP  EVT-001 Targeted high-signal event IDs in the last 720 h
+2026-09-01T02:00:00Z [INFO] START TRUST-001 Trust configuration and secure channel
+2026-09-01T02:00:00Z [INFO] END   TRUST-001 status=Warn findings=1 ms=11
+2026-09-01T02:00:00Z [INFO] START SITE-001 Sites, subnets and site links
+2026-09-01T02:00:00Z [INFO] END   SITE-001 status=Warn findings=3 ms=14
+2026-09-01T02:00:00Z [INFO] START KRB-001 krbtgt password age (incl. RODC krbtgt_*)
+2026-09-01T02:00:00Z [INFO] END   KRB-001 status=Fail findings=1 ms=7
+2026-09-01T02:00:00Z [INFO] START PRIV-001 Protected group membership (SID-resolved, nested via LDAP_MATCHING_RULE_IN_CHAIN)
+2026-09-01T02:00:00Z [INFO] END   PRIV-001 status=Warn findings=1 ms=51
+2026-09-01T02:00:00Z [INFO] START PRIV-002 Privileged account hygiene (adminCount=1 accounts)
+2026-09-01T02:00:00Z [INFO] END   PRIV-002 status=Fail findings=6 ms=39
+2026-09-01T02:00:00Z [INFO] START HYG-000 Domain policy: default password policy, MachineAccountQuota
+2026-09-01T02:00:00Z [INFO] END   HYG-000 status=Warn findings=3 ms=9
+2026-09-01T02:00:00Z [INFO] START HYG-100 Object hygiene rules (13 LDAP rules per domain)
+2026-09-01T02:00:00Z [INFO] END   HYG-100 status=Fail findings=3 ms=49
+2026-09-01T02:00:00Z [INFO] START HYG-014 LAPS coverage (Windows LAPS or legacy LAPS) on active non-DC Windows computers
+2026-09-01T02:00:00Z [INFO] END   HYG-014 status=Warn findings=1 ms=8
+2026-09-01T02:00:00Z [WARN] WindowsIdentity unavailable; using environment user name.

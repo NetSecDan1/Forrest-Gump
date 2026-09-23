@@ -1,0 +1,1119 @@
+{
+  "schemaVersion": "1.0",
+  "reportType": "ADForestHealth",
+  "reportId": "6f1c2b9e-5d0a-4c1e-9b7e-3a2d1f0e9c11",
+  "generatedUtc": "2026-09-01T02:00:00Z",
+  "collector": {
+    "name": "Invoke-ADForestHealthReport",
+    "version": "1.0.0",
+    "host": "ADHEALTH-JMP01",
+    "runAs": "CONTOSO\\gmsa-adhealth$",
+    "psVersion": "5.1.20348.2849",
+    "adModuleVersion": "1.0.1.0",
+    "durationSeconds": 1,
+    "serverAffinity": {
+      "contoso.test": "localhost"
+    },
+    "commandLine": "& C:\\ADHealth\\collector\\Invoke-ADForestHealthReport.ps1 -OutputPath \\\\fs01\\ADHealth$\\inbox",
+    "parameters": {
+      "HoursBack": 720,
+      "StaleDays": 90,
+      "BackupWarnDays": 7,
+      "ReplLagWarnHours": 24,
+      "TimeSkewWarnSeconds": 60,
+      "PrivilegedGroupWarnCount": 10,
+      "Domain": [
+        null
+      ],
+      "DomainController": [
+        null
+      ],
+      "SkipDcDiag": true,
+      "SkipEventLogs": true,
+      "SkipRemoteCim": true,
+      "SkipHygiene": false,
+      "RedactNames": false
+    },
+    "hygieneRules": [
+      {
+        "id": "HYG-001",
+        "filter": "(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(|(lastLogonTimestamp<=134268665408488447)(&(!(lastLogonTimestamp=*))(whenCreated<=20260625130900.0Z))))"
+      },
+      {
+        "id": "HYG-002",
+        "filter": "(&(objectCategory=computer)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(!(primaryGroupID=516))(!(primaryGroupID=521))(|(lastLogonTimestamp<=134268665408488447)(&(!(lastLogonTimestamp=*))(whenCreated<=20260625130900.0Z))))"
+      },
+      {
+        "id": "HYG-003",
+        "filter": "(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(userAccountControl:1.2.840.113556.1.4.803:=65536))"
+      },
+      {
+        "id": "HYG-004",
+        "filter": "(&(|(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))(&(objectCategory=computer)(!(userAccountControl:1.2.840.113556.1.4.803:=2))))(userAccountControl:1.2.840.113556.1.4.803:=32))"
+      },
+      {
+        "id": "HYG-005",
+        "filter": "(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(userAccountControl:1.2.840.113556.1.4.803:=4194304))"
+      },
+      {
+        "id": "HYG-006",
+        "filter": "(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(servicePrincipalName=*)(!(sAMAccountName=krbtgt)))"
+      },
+      {
+        "id": "HYG-007",
+        "filter": "(&(|(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))(&(objectCategory=computer)(!(userAccountControl:1.2.840.113556.1.4.803:=2))))(!(primaryGroupID=516))(!(primaryGroupID=521))(userAccountControl:1.2.840.113556.1.4.803:=524288))"
+      },
+      {
+        "id": "HYG-008",
+        "filter": "(&(|(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))(&(objectCategory=computer)(!(userAccountControl:1.2.840.113556.1.4.803:=2))))(!(primaryGroupID=516))(!(primaryGroupID=521))(userAccountControl:1.2.840.113556.1.4.803:=16777216))"
+      },
+      {
+        "id": "HYG-009",
+        "filter": "(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(userAccountControl:1.2.840.113556.1.4.803:=128))"
+      },
+      {
+        "id": "HYG-010",
+        "filter": "(&(|(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))(&(objectCategory=computer)(!(userAccountControl:1.2.840.113556.1.4.803:=2))))(userAccountControl:1.2.840.113556.1.4.803:=2097152))"
+      },
+      {
+        "id": "HYG-011",
+        "filter": "(sIDHistory=*)"
+      },
+      {
+        "id": "HYG-012",
+        "filter": "(&(objectCategory=computer)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(lastLogonTimestamp>=134268665408488447)(|(operatingSystem=*XP*)(operatingSystem=*Vista*)(operatingSystem=Windows 7*)(operatingSystem=Windows 8*)(operatingSystem=*2003*)(operatingSystem=*2008*)(operatingSystem=*2012*)))"
+      },
+      {
+        "id": "HYG-013",
+        "filter": "(&(objectCategory=computer)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(lastLogonTimestamp>=134268665408488447)(operatingSystem=Windows 10*))"
+      }
+    ]
+  },
+  "summary": {
+    "overallStatus": "Red",
+    "healthScore": 0,
+    "severityCounts": {
+      "Critical": 6,
+      "High": 12,
+      "Medium": 12,
+      "Low": 6,
+      "Info": 2
+    },
+    "domainCount": 1,
+    "domainControllerCount": 3,
+    "checkCount": 26,
+    "checkCoveragePercent": 96.0,
+    "collectionErrorCount": 4,
+    "scoped": false
+  },
+  "forest": {
+    "name": "contoso.test",
+    "rootDomain": "contoso.test",
+    "forestMode": "Windows2012R2Forest",
+    "schemaMaster": "localhost",
+    "domainNamingMaster": "localhost",
+    "domains": [
+      "contoso.test"
+    ],
+    "domainsInScope": [
+      "contoso.test"
+    ],
+    "sites": [
+      "HQ",
+      "Branch",
+      "Empty"
+    ],
+    "globalCatalogs": [
+      "localhost",
+      "127.0.0.2"
+    ],
+    "upnSuffixes": [],
+    "recycleBinEnabled": false,
+    "tombstoneLifetimeDays": 180
+  },
+  "domains": [
+    {
+      "name": "contoso.test",
+      "netBIOSName": "CONTOSO",
+      "distinguishedName": "DC=contoso,DC=test",
+      "domainSID": "S-1-5-21-1111111111-2222222222-3333333333",
+      "domainMode": "Windows2016Domain",
+      "pdcEmulator": "localhost",
+      "ridMaster": "localhost",
+      "infrastructureMaster": "localhost",
+      "server": "localhost",
+      "dcCount": 3,
+      "krbtgtPasswordAgeDays": 900,
+      "sysvolReplication": "DFSR",
+      "machineAccountQuota": 10,
+      "metrics": {
+        "fineGrainedPasswordPolicies": 0,
+        "staleUsers": 2,
+        "staleComputers": 0,
+        "passwordNeverExpires": 0,
+        "passwordNotRequired": 0,
+        "asRepRoastable": 1,
+        "kerberoastableUsers": 0,
+        "unconstrainedDelegation": 0,
+        "protocolTransitionDelegation": 0,
+        "reversibleEncryption": 0,
+        "desOnly": 0,
+        "sidHistory": 0,
+        "legacyOsActive": 1,
+        "windows10Active": 0,
+        "enabledUsers": 50,
+        "enabledComputers": 20,
+        "lapsMissing": 1
+      }
+    }
+  ],
+  "domainControllers": [
+    {
+      "name": "localhost",
+      "shortName": "DC1",
+      "domain": "contoso.test",
+      "site": "HQ",
+      "ipv4Address": "127.0.0.1",
+      "operatingSystem": "Windows Server 2022 Datacenter",
+      "operatingSystemVersion": "10.0 (20348)",
+      "isGlobalCatalog": true,
+      "isReadOnly": false,
+      "fsmoRoles": [
+        "SchemaMaster",
+        "DomainNamingMaster",
+        "PDCEmulator",
+        "RIDMaster",
+        "InfrastructureMaster"
+      ],
+      "reachable": true,
+      "openPorts": [
+        389,
+        88,
+        445,
+        135,
+        53,
+        3268
+      ],
+      "ldapOk": true,
+      "timeOffsetSeconds": 0.0,
+      "timeSkewSeconds": 0.0,
+      "uptimeDays": null,
+      "minFreeDiskPercent": null,
+      "stoppedServices": [],
+      "sysvolState": null,
+      "dcdiagFailedTests": [],
+      "replicationFailures": 0,
+      "maxReplicationLagHours": 0.2
+    },
+    {
+      "name": "127.0.0.2",
+      "shortName": "DC2",
+      "domain": "contoso.test",
+      "site": "Branch",
+      "ipv4Address": "127.0.0.2",
+      "operatingSystem": "Windows Server 2016 Standard",
+      "operatingSystemVersion": "10.0 (14393)",
+      "isGlobalCatalog": true,
+      "isReadOnly": false,
+      "fsmoRoles": [],
+      "reachable": true,
+      "openPorts": [
+        389,
+        88,
+        445,
+        135,
+        53,
+        3268
+      ],
+      "ldapOk": true,
+      "timeOffsetSeconds": 95.0,
+      "timeSkewSeconds": 95.0,
+      "uptimeDays": null,
+      "minFreeDiskPercent": null,
+      "stoppedServices": [],
+      "sysvolState": null,
+      "dcdiagFailedTests": [],
+      "replicationFailures": 1,
+      "maxReplicationLagHours": 30.0
+    },
+    {
+      "name": "dc3.invalid",
+      "shortName": "DC3",
+      "domain": "contoso.test",
+      "site": "Branch",
+      "ipv4Address": "10.255.255.1",
+      "operatingSystem": "Windows Server 2012 R2 Standard",
+      "operatingSystemVersion": "6.3 (9600)",
+      "isGlobalCatalog": false,
+      "isReadOnly": false,
+      "fsmoRoles": [],
+      "reachable": false,
+      "openPorts": [],
+      "ldapOk": null,
+      "timeOffsetSeconds": null,
+      "timeSkewSeconds": null,
+      "uptimeDays": null,
+      "minFreeDiskPercent": null,
+      "stoppedServices": [],
+      "sysvolState": null,
+      "dcdiagFailedTests": [],
+      "replicationFailures": 0,
+      "maxReplicationLagHours": null
+    }
+  ],
+  "metrics": {
+    "dcUnreachable": 1.0,
+    "maxTimeSkewSeconds": 95.0,
+    "replicationLinks": 2.0,
+    "replicationLinksFailing": 1.0,
+    "maxReplicationLagHours": 30.0,
+    "replicationFailureRecords": 1.0,
+    "oldestBackupDays": 12.0,
+    "trustCount": 1.0,
+    "siteCount": 3.0,
+    "subnetCount": 3.0,
+    "siteLinkCount": 1.0,
+    "krbtgtMaxAgeDays": 900.0,
+    "privilegedMemberships": 3.0,
+    "privilegedAccountsUnique": 2.0,
+    "staleUsers": 2.0,
+    "staleComputers": 0.0,
+    "passwordNeverExpires": 0.0,
+    "passwordNotRequired": 0.0,
+    "asRepRoastable": 1.0,
+    "kerberoastableUsers": 0.0,
+    "unconstrainedDelegation": 0.0,
+    "protocolTransitionDelegation": 0.0,
+    "reversibleEncryption": 0.0,
+    "desOnly": 0.0,
+    "sidHistory": 0.0,
+    "legacyOsActive": 1.0,
+    "windows10Active": 0.0,
+    "enabledUsers": 50.0,
+    "enabledComputers": 20.0,
+    "lapsMissing": 1.0,
+    "domainCount": 1.0,
+    "dcCount": 3.0,
+    "gcCount": 2.0,
+    "rodcCount": 0.0
+  },
+  "checks": [
+    {
+      "id": "FOREST-001",
+      "category": "Forest",
+      "name": "Forest configuration (functional level, Recycle Bin, tombstone lifetime)",
+      "status": "Warn",
+      "summary": "FFL=Windows2012R2Forest; RecycleBin=False; TSL=180",
+      "findingCount": 2,
+      "durationMs": 49,
+      "command": "Get-ADForest; Get-ADOptionalFeature -Filter \"Name -eq 'Recycle Bin Feature'\"; Get-ADObject \"CN=Directory Service,CN=Windows NT,CN=Services,<ConfigNC>\" -Properties tombstoneLifetime"
+    },
+    {
+      "id": "DC-001",
+      "category": "DCHealth",
+      "name": "DC network reachability (LDAP 389, Kerberos 88, SMB 445, RPC 135, GC 3268, DNS 53, WinRM 5985)",
+      "status": "Fail",
+      "summary": "2/3 DCs reachable on core ports",
+      "findingCount": 1,
+      "durationMs": 99,
+      "command": "TcpClient.BeginConnect(<dc>, <port>) with timeout"
+    },
+    {
+      "id": "DC-002",
+      "category": "DCHealth",
+      "name": "LDAP RootDSE bind and clock offset per DC",
+      "status": "Pass",
+      "summary": "2 DC(s) answered RootDSE",
+      "findingCount": 0,
+      "durationMs": 33,
+      "command": "Get-ADRootDSE -Server <dc> (currentTime compared to collector UTC)"
+    },
+    {
+      "id": "TIME-001",
+      "category": "Time",
+      "name": "DC clock offset relative to forest-root PDC emulator",
+      "status": "Fail",
+      "summary": "Reference=localhost; max skew=95 s (sample precision ~1 s incl. network latency)",
+      "findingCount": 1,
+      "durationMs": 19,
+      "command": "Derived from DC-002 currentTime samples"
+    },
+    {
+      "id": "TIME-002",
+      "category": "Time",
+      "name": "Forest-root PDC emulator time source",
+      "status": "Error",
+      "summary": "Check failed: w32tm.exe not found on collector host (install RSAT AD DS tools).",
+      "findingCount": 0,
+      "durationMs": 148,
+      "command": "w32tm /query /computer:<rootPDC> /source"
+    },
+    {
+      "id": "FSMO-001",
+      "category": "FSMO",
+      "name": "FSMO role holders exist in DC inventory and are reachable",
+      "status": "Pass",
+      "summary": "5 role assignments evaluated",
+      "findingCount": 0,
+      "durationMs": 14,
+      "command": "Get-ADForest (SchemaMaster, DomainNamingMaster); Get-ADDomain (PDCEmulator, RIDMaster, InfrastructureMaster)"
+    },
+    {
+      "id": "DC-003",
+      "category": "DCHealth",
+      "name": "Domain controller operating system lifecycle",
+      "status": "Fail",
+      "summary": "Windows Server 2012 R2 Standard=1; Windows Server 2016 Standard=1; Windows Server 2022 Datacenter=1",
+      "findingCount": 2,
+      "durationMs": 10,
+      "command": "Get-ADDomainController -Filter * (OperatingSystem)"
+    },
+    {
+      "id": "DC-004",
+      "category": "DCHealth",
+      "name": "DC services, disk free space and uptime (CIM/WinRM, DCOM fallback)",
+      "status": "Skipped",
+      "summary": "Skipped by operator switch.",
+      "findingCount": 0,
+      "durationMs": 0,
+      "command": "Get-CimInstance Win32_Service/Win32_LogicalDisk/Win32_OperatingSystem -CimSession <dc>"
+    },
+    {
+      "id": "REPL-001",
+      "category": "Replication",
+      "name": "Inbound replication partner metadata (last success, consecutive failures)",
+      "status": "Fail",
+      "summary": "2 inbound links; 1 failing/lagging; max lag 30 h (detail: detail/replication-partner-metadata.csv)",
+      "findingCount": 1,
+      "durationMs": 32,
+      "command": "Get-ADReplicationPartnerMetadata -Target <dc> -Partition * -PartnerType Inbound"
+    },
+    {
+      "id": "REPL-002",
+      "category": "Replication",
+      "name": "Replication failure records",
+      "status": "Fail",
+      "summary": "1 active failure record(s)",
+      "findingCount": 1,
+      "durationMs": 11,
+      "command": "Get-ADReplicationFailure -Target <dc>"
+    },
+    {
+      "id": "REPL-003",
+      "category": "Replication",
+      "name": "repadmin /showrepl cross-check (native tool vs cmdlets)",
+      "status": "Partial",
+      "summary": "repadmin failing links: 0; cmdlet-derived failing findings: 2",
+      "findingCount": 0,
+      "durationMs": 116,
+      "command": "repadmin /showrepl <dc> /csv ; repadmin /replsummary"
+    },
+    {
+      "id": "SYSVOL-001",
+      "category": "SYSVOL",
+      "name": "SYSVOL replication engine (FRS vs DFSR migration state)",
+      "status": "Pass",
+      "summary": "contoso.test=DFSR",
+      "findingCount": 0,
+      "durationMs": 6,
+      "command": "Get-ADObject \"CN=DFSR-GlobalSettings,CN=System,<domainDN>\" -Properties msDFSR-Flags"
+    },
+    {
+      "id": "SYSVOL-002",
+      "category": "SYSVOL",
+      "name": "SYSVOL/NETLOGON shares and DFSR replicated folder state per DC",
+      "status": "Fail",
+      "summary": "Shares tested on 2 DC(s)",
+      "findingCount": 4,
+      "durationMs": 7,
+      "command": "Test-Path \\\\<dc>\\SYSVOL, \\\\<dc>\\NETLOGON; Get-CimInstance -Namespace root\\microsoftdfs DfsrReplicatedFolderInfo"
+    },
+    {
+      "id": "DNS-001",
+      "category": "DNS",
+      "name": "DC locator SRV records (domain DCs, PDC, GCs)",
+      "status": "Fail",
+      "summary": "Locator records evaluated for writable DCs (RODCs excluded by design)",
+      "findingCount": 2,
+      "durationMs": 23,
+      "command": "Resolve-DnsName _ldap._tcp.dc._msdcs.<domain> / _ldap._tcp.pdc._msdcs.<domain> / _gc._tcp.<forest> -Type SRV"
+    },
+    {
+      "id": "DNS-002",
+      "category": "DNS",
+      "name": "Per-DC DNS server consistency for DC locator records",
+      "status": "Warn",
+      "summary": "2 DC DNS server(s) queried",
+      "findingCount": 2,
+      "durationMs": 10,
+      "command": "Resolve-DnsName _ldap._tcp.dc._msdcs.<domain> -Type SRV -Server <each DC with 53/tcp open>"
+    },
+    {
+      "id": "BACKUP-001",
+      "category": "Backup",
+      "name": "Last backup per naming context (dSASignature metadata)",
+      "status": "Fail",
+      "summary": "5 naming contexts; oldest backup 12 days",
+      "findingCount": 1,
+      "durationMs": 54,
+      "command": "Get-ADReplicationAttributeMetadata -Object <NC DN> -Properties dSASignature -Server <dc>"
+    },
+    {
+      "id": "DCDIAG-001",
+      "category": "DCHealth",
+      "name": "dcdiag per DC (default tests, SystemLog skipped)",
+      "status": "Skipped",
+      "summary": "Skipped by operator switch.",
+      "findingCount": 0,
+      "durationMs": 0,
+      "command": "dcdiag /s:<dc> /skip:SystemLog"
+    },
+    {
+      "id": "EVT-001",
+      "category": "EventLogs",
+      "name": "Targeted high-signal event IDs in the last 720 h",
+      "status": "Skipped",
+      "summary": "Skipped by operator switch.",
+      "findingCount": 0,
+      "durationMs": 0,
+      "command": "Get-WinEvent -ComputerName <dc> -FilterHashtable @{LogName=<log>; Id=<list>; StartTime=<since>} -MaxEvents <cap>"
+    },
+    {
+      "id": "TRUST-001",
+      "category": "Trusts",
+      "name": "Trust configuration and secure channel",
+      "status": "Warn",
+      "summary": "1 trust(s) evaluated",
+      "findingCount": 1,
+      "durationMs": 11,
+      "command": "Get-ADTrust -Filter * -Properties whenChanged; nltest /server:<pdc> /sc_query:<trust>"
+    },
+    {
+      "id": "SITE-001",
+      "category": "Sites",
+      "name": "Sites, subnets and site links",
+      "status": "Warn",
+      "summary": "3 sites, 3 subnets, 1 site links",
+      "findingCount": 3,
+      "durationMs": 14,
+      "command": "Get-ADReplicationSite/Subnet/SiteLink -Filter *"
+    },
+    {
+      "id": "KRB-001",
+      "category": "Kerberos",
+      "name": "krbtgt password age (incl. RODC krbtgt_*)",
+      "status": "Fail",
+      "summary": "Oldest krbtgt password: 900 days",
+      "findingCount": 1,
+      "durationMs": 7,
+      "command": "Get-ADUser -LDAPFilter \"(|(sAMAccountName=krbtgt)(sAMAccountName=krbtgt_*))\" -Properties pwdLastSet"
+    },
+    {
+      "id": "PRIV-001",
+      "category": "PrivilegedAccess",
+      "name": "Protected group membership (SID-resolved, nested via LDAP_MATCHING_RULE_IN_CHAIN)",
+      "status": "Warn",
+      "summary": "2 unique privileged principals (3 memberships)",
+      "findingCount": 1,
+      "durationMs": 51,
+      "command": "Get-ADObject -LDAPFilter \"(memberOf:1.2.840.113556.1.4.1941:=<groupDN>)\""
+    },
+    {
+      "id": "PRIV-002",
+      "category": "PrivilegedAccess",
+      "name": "Privileged account hygiene (adminCount=1 accounts)",
+      "status": "Fail",
+      "summary": "Privileged account hygiene evaluated",
+      "findingCount": 6,
+      "durationMs": 39,
+      "command": "Get-ADUser -LDAPFilter \"(adminCount=1)\" -Properties servicePrincipalName, pwdLastSet, lastLogonTimestamp, userAccountControl, memberOf"
+    },
+    {
+      "id": "HYG-000",
+      "category": "Hygiene",
+      "name": "Domain policy: default password policy, MachineAccountQuota",
+      "status": "Warn",
+      "summary": "Domain policies evaluated",
+      "findingCount": 3,
+      "durationMs": 9,
+      "command": "Get-ADDefaultDomainPasswordPolicy; Get-ADObject <domainDN> -Properties ms-DS-MachineAccountQuota; Get-ADFineGrainedPasswordPolicy -Filter *"
+    },
+    {
+      "id": "HYG-100",
+      "category": "Hygiene",
+      "name": "Object hygiene rules (13 LDAP rules per domain)",
+      "status": "Fail",
+      "summary": "13 rules x 1 domain(s)",
+      "findingCount": 3,
+      "durationMs": 49,
+      "command": "Get-ADObject -LDAPFilter <rule filter> -Properties sAMAccountName,lastLogonTimestamp,operatingSystem (ResultPageSize 1000). Filters listed in report.collector.hygieneRules"
+    },
+    {
+      "id": "HYG-014",
+      "category": "Hygiene",
+      "name": "LAPS coverage (Windows LAPS or legacy LAPS) on active non-DC Windows computers",
+      "status": "Warn",
+      "summary": "LAPS attributes present: msLAPS-PasswordExpirationTime",
+      "findingCount": 1,
+      "durationMs": 8,
+      "command": "Schema lookup for msLAPS-PasswordExpirationTime / ms-Mcs-AdmPwdExpirationTime; Get-ADObject -LDAPFilter <active windows computers without either attribute>"
+    }
+  ],
+  "findings": [
+    {
+      "id": "FOREST-001|forest",
+      "checkId": "FOREST-001",
+      "category": "Forest",
+      "severity": "Medium",
+      "title": "AD Recycle Bin is not enabled",
+      "target": "forest",
+      "count": 1,
+      "detail": "Deleted objects cannot be restored with attributes/links intact without an authoritative restore.",
+      "recommendation": "Plan enablement via change control (irreversible, forest-wide).",
+      "evidenceRef": "",
+      "sample": []
+    },
+    {
+      "id": "FOREST-001|forest",
+      "checkId": "FOREST-001",
+      "category": "Forest",
+      "severity": "Low",
+      "title": "Forest functional level is Windows2012R2Forest",
+      "target": "forest",
+      "count": 1,
+      "detail": "",
+      "recommendation": "Plan FFL/DFL uplift after all DCs run a supported OS (irreversible change - change control required).",
+      "evidenceRef": "",
+      "sample": []
+    },
+    {
+      "id": "DC-001|dc3.invalid",
+      "checkId": "DC-001",
+      "category": "DCHealth",
+      "severity": "Critical",
+      "title": "Domain controller not reachable on core ports",
+      "target": "dc3.invalid",
+      "count": 1,
+      "detail": "Closed/filtered: 389, 88, 445. Open: ",
+      "recommendation": "Verify DC is online, NTDS/KDC/Netlogon running, and firewall path from collector host. Later per-DC checks are skipped for this DC.",
+      "evidenceRef": "",
+      "sample": []
+    },
+    {
+      "id": "TIME-001|127.0.0.2",
+      "checkId": "TIME-001",
+      "category": "Time",
+      "severity": "High",
+      "title": "Clock skew 95 s vs localhost",
+      "target": "127.0.0.2",
+      "count": 1,
+      "detail": "",
+      "recommendation": "Check W32Time source and NT5DS hierarchy on this DC.",
+      "evidenceRef": "",
+      "sample": []
+    },
+    {
+      "id": "DC-003|127.0.0.2",
+      "checkId": "DC-003",
+      "category": "DCHealth",
+      "severity": "Medium",
+      "title": "DC runs Windows Server 2016 Standard (extended support ends 2027-01-12)",
+      "target": "127.0.0.2",
+      "count": 1,
+      "detail": "",
+      "recommendation": "Plan replacement before end of extended support.",
+      "evidenceRef": "",
+      "sample": []
+    },
+    {
+      "id": "DC-003|dc3.invalid",
+      "checkId": "DC-003",
+      "category": "DCHealth",
+      "severity": "High",
+      "title": "DC runs unsupported OS (Windows Server 2012 R2 Standard)",
+      "target": "dc3.invalid",
+      "count": 1,
+      "detail": "",
+      "recommendation": "Prioritize DC replacement (promote new DC on supported OS, transfer roles, demote).",
+      "evidenceRef": "",
+      "sample": []
+    },
+    {
+      "id": "REPL-001|127.0.0.2<-dc1/dc=contoso,dc=test",
+      "checkId": "REPL-001",
+      "category": "Replication",
+      "severity": "High",
+      "title": "Replication failing or lagging (30 h, 12 consecutive failures)",
+      "target": "127.0.0.2<-DC1/DC=contoso,DC=test",
+      "count": 1,
+      "detail": "Last result 8606 (0x219E)",
+      "recommendation": "Map the error code (e.g. 8453 access denied, 1722 RPC unavailable, 8606 lingering objects) and investigate the link.",
+      "evidenceRef": "",
+      "sample": []
+    },
+    {
+      "id": "REPL-002|127.0.0.2<-dc1",
+      "checkId": "REPL-002",
+      "category": "Replication",
+      "severity": "Critical",
+      "title": "Replication failure from DC1 (error 8606, 12 failures)",
+      "target": "127.0.0.2<-DC1",
+      "count": 1,
+      "detail": "First failure: 09/22/2026 07:08:59",
+      "recommendation": "Use repadmin /showrepl <dc> for per-NC status; 8606/8614 require lingering-object remediation plan.",
+      "evidenceRef": "",
+      "sample": []
+    },
+    {
+      "id": "SYSVOL-002|localhost",
+      "checkId": "SYSVOL-002",
+      "category": "SYSVOL",
+      "severity": "Critical",
+      "title": "SYSVOL share not accessible",
+      "target": "localhost",
+      "count": 1,
+      "detail": "DC will not advertise as a DC / GPOs and logon scripts unavailable from this DC.",
+      "recommendation": "Check SysvolReady registry value and DFSR state (event log DFS Replication).",
+      "evidenceRef": "",
+      "sample": []
+    },
+    {
+      "id": "SYSVOL-002|localhost",
+      "checkId": "SYSVOL-002",
+      "category": "SYSVOL",
+      "severity": "Critical",
+      "title": "NETLOGON share not accessible",
+      "target": "localhost",
+      "count": 1,
+      "detail": "DC will not advertise as a DC / GPOs and logon scripts unavailable from this DC.",
+      "recommendation": "Check SysvolReady registry value and DFSR state (event log DFS Replication).",
+      "evidenceRef": "",
+      "sample": []
+    },
+    {
+      "id": "SYSVOL-002|127.0.0.2",
+      "checkId": "SYSVOL-002",
+      "category": "SYSVOL",
+      "severity": "Critical",
+      "title": "SYSVOL share not accessible",
+      "target": "127.0.0.2",
+      "count": 1,
+      "detail": "DC will not advertise as a DC / GPOs and logon scripts unavailable from this DC.",
+      "recommendation": "Check SysvolReady registry value and DFSR state (event log DFS Replication).",
+      "evidenceRef": "",
+      "sample": []
+    },
+    {
+      "id": "SYSVOL-002|127.0.0.2",
+      "checkId": "SYSVOL-002",
+      "category": "SYSVOL",
+      "severity": "Critical",
+      "title": "NETLOGON share not accessible",
+      "target": "127.0.0.2",
+      "count": 1,
+      "detail": "DC will not advertise as a DC / GPOs and logon scripts unavailable from this DC.",
+      "recommendation": "Check SysvolReady registry value and DFSR state (event log DFS Replication).",
+      "evidenceRef": "",
+      "sample": []
+    },
+    {
+      "id": "DNS-001|dc3.invalid",
+      "checkId": "DNS-001",
+      "category": "DNS",
+      "severity": "High",
+      "title": "Writable DC missing from _ldap._tcp.dc._msdcs SRV records",
+      "target": "dc3.invalid",
+      "count": 1,
+      "detail": "Domain contoso.test",
+      "recommendation": "Check Netlogon registration (netlogon.dns, event 5774/5781) - clients cannot locate this DC.",
+      "evidenceRef": "",
+      "sample": []
+    },
+    {
+      "id": "DNS-001|contoso.test",
+      "checkId": "DNS-001",
+      "category": "DNS",
+      "severity": "High",
+      "title": "SRV records point to hosts that are not current DCs",
+      "target": "contoso.test",
+      "count": 1,
+      "detail": "",
+      "recommendation": "Stale locator records send clients to decommissioned DCs; validate metadata cleanup and DNS scavenging.",
+      "evidenceRef": "",
+      "sample": [
+        "olddc.contoso.test"
+      ]
+    },
+    {
+      "id": "DNS-002|localhost",
+      "checkId": "DNS-002",
+      "category": "DNS",
+      "severity": "Medium",
+      "title": "DNS on this DC is missing 1 DC locator record(s)",
+      "target": "localhost",
+      "count": 1,
+      "detail": "",
+      "recommendation": "Indicates AD-integrated zone replication or registration inconsistency between DNS servers.",
+      "evidenceRef": "",
+      "sample": [
+        "dc3.invalid"
+      ]
+    },
+    {
+      "id": "DNS-002|127.0.0.2",
+      "checkId": "DNS-002",
+      "category": "DNS",
+      "severity": "Medium",
+      "title": "DNS on this DC is missing 1 DC locator record(s)",
+      "target": "127.0.0.2",
+      "count": 1,
+      "detail": "",
+      "recommendation": "Indicates AD-integrated zone replication or registration inconsistency between DNS servers.",
+      "evidenceRef": "",
+      "sample": [
+        "dc3.invalid"
+      ]
+    },
+    {
+      "id": "BACKUP-001|dc=domaindnszones,dc=contoso,dc=test",
+      "checkId": "BACKUP-001",
+      "category": "Backup",
+      "severity": "High",
+      "title": "Last backup 12 days ago",
+      "target": "DC=DomainDnsZones,DC=contoso,DC=test",
+      "count": 1,
+      "detail": "Last: 09/11/2026 13:08:59",
+      "recommendation": "Verify backup jobs for system state on DCs in this NC.",
+      "evidenceRef": "",
+      "sample": []
+    },
+    {
+      "id": "TRUST-001|contoso.test->fabrikam.test",
+      "checkId": "TRUST-001",
+      "category": "Trusts",
+      "severity": "Medium",
+      "title": "Trust not configured for AES",
+      "target": "contoso.test->fabrikam.test",
+      "count": 1,
+      "detail": "",
+      "recommendation": "RC4 across trusts is being deprecated; plan AES enablement.",
+      "evidenceRef": "",
+      "sample": []
+    },
+    {
+      "id": "SITE-001|forest",
+      "checkId": "SITE-001",
+      "category": "Sites",
+      "severity": "Low",
+      "title": "1 site(s) have no subnets",
+      "target": "forest",
+      "count": 1,
+      "detail": "",
+      "recommendation": "Clients cannot be mapped to these sites; remove or assign subnets.",
+      "evidenceRef": "",
+      "sample": [
+        "Empty"
+      ]
+    },
+    {
+      "id": "SITE-001|forest",
+      "checkId": "SITE-001",
+      "category": "Sites",
+      "severity": "Low",
+      "title": "1 subnet(s) not associated with a site",
+      "target": "forest",
+      "count": 1,
+      "detail": "",
+      "recommendation": "",
+      "evidenceRef": "",
+      "sample": [
+        "192.168.50.0/24"
+      ]
+    },
+    {
+      "id": "SITE-001|forest",
+      "checkId": "SITE-001",
+      "category": "Sites",
+      "severity": "Info",
+      "title": "1 site(s) have no DC (clients use site coverage / next closest)",
+      "target": "forest",
+      "count": 1,
+      "detail": "",
+      "recommendation": "",
+      "evidenceRef": "",
+      "sample": [
+        "Empty"
+      ]
+    },
+    {
+      "id": "KRB-001|contoso.test/krbtgt",
+      "checkId": "KRB-001",
+      "category": "Kerberos",
+      "severity": "High",
+      "title": "krbtgt password is 900 days old",
+      "target": "contoso.test/krbtgt",
+      "count": 1,
+      "detail": "",
+      "recommendation": "Plan a staged double rotation (allow full replication + max ticket lifetime between resets) under change control.",
+      "evidenceRef": "",
+      "sample": []
+    },
+    {
+      "id": "PRIV-001|contoso.test/schema admins",
+      "checkId": "PRIV-001",
+      "category": "PrivilegedAccess",
+      "severity": "Medium",
+      "title": "Schema Admins is not empty (1)",
+      "target": "contoso.test/Schema Admins",
+      "count": 1,
+      "detail": "",
+      "recommendation": "Keep empty except during approved schema changes.",
+      "evidenceRef": "",
+      "sample": [
+        "admin1"
+      ]
+    },
+    {
+      "id": "PRIV-002|contoso.test/priv-spn",
+      "checkId": "PRIV-002",
+      "category": "PrivilegedAccess",
+      "severity": "High",
+      "title": "Privileged accounts with SPNs (kerberoastable Tier-0)",
+      "target": "contoso.test/priv-spn",
+      "count": 1,
+      "detail": "",
+      "recommendation": "Remove SPNs from privileged users or move services to gMSA.",
+      "evidenceRef": "",
+      "sample": [
+        "svc_sql_admin"
+      ]
+    },
+    {
+      "id": "PRIV-002|contoso.test/priv-pwd-never-expires",
+      "checkId": "PRIV-002",
+      "category": "PrivilegedAccess",
+      "severity": "High",
+      "title": "Privileged accounts with password never expires",
+      "target": "contoso.test/priv-pwd-never-expires",
+      "count": 1,
+      "detail": "",
+      "recommendation": "Enforce rotation or vault-managed credentials.",
+      "evidenceRef": "",
+      "sample": [
+        "admin1"
+      ]
+    },
+    {
+      "id": "PRIV-002|contoso.test/priv-pwd-older-365d",
+      "checkId": "PRIV-002",
+      "category": "PrivilegedAccess",
+      "severity": "Medium",
+      "title": "Privileged accounts with password older than 365 days",
+      "target": "contoso.test/priv-pwd-older-365d",
+      "count": 2,
+      "detail": "",
+      "recommendation": "Rotate credentials.",
+      "evidenceRef": "",
+      "sample": [
+        "admin1",
+        "svc_sql_admin"
+      ]
+    },
+    {
+      "id": "PRIV-002|contoso.test/priv-inactive",
+      "checkId": "PRIV-002",
+      "category": "PrivilegedAccess",
+      "severity": "Medium",
+      "title": "Privileged accounts inactive > 90 days",
+      "target": "contoso.test/priv-inactive",
+      "count": 2,
+      "detail": "",
+      "recommendation": "Disable/remove unused privileged accounts (change control).",
+      "evidenceRef": "",
+      "sample": [
+        "admin1",
+        "svc_sql_admin"
+      ]
+    },
+    {
+      "id": "PRIV-002|contoso.test/priv-admincount-orphans",
+      "checkId": "PRIV-002",
+      "category": "PrivilegedAccess",
+      "severity": "Low",
+      "title": "adminCount=1 accounts not found in in-scope protected groups (possible orphans)",
+      "target": "contoso.test/priv-admincount-orphans",
+      "count": 1,
+      "detail": "",
+      "recommendation": "Verify (cross-domain/universal group membership is not expanded), then clear adminCount and restore ACL inheritance under change control.",
+      "evidenceRef": "",
+      "sample": [
+        "former_admin"
+      ]
+    },
+    {
+      "id": "PRIV-002|contoso.test/priv-not-in-protected-users",
+      "checkId": "PRIV-002",
+      "category": "PrivilegedAccess",
+      "severity": "Info",
+      "title": "Privileged accounts not in Protected Users",
+      "target": "contoso.test/priv-not-in-protected-users",
+      "count": 2,
+      "detail": "",
+      "recommendation": "Evaluate Protected Users for interactive admin accounts (test first: breaks NTLM/delegation).",
+      "evidenceRef": "",
+      "sample": [
+        "admin1",
+        "svc_sql_admin"
+      ]
+    },
+    {
+      "id": "HYG-000|contoso.test/password-policy",
+      "checkId": "HYG-000",
+      "category": "Hygiene",
+      "severity": "Low",
+      "title": "Default minimum password length is 8 (< 14)",
+      "target": "contoso.test/password-policy",
+      "count": 1,
+      "detail": "",
+      "recommendation": "",
+      "evidenceRef": "",
+      "sample": []
+    },
+    {
+      "id": "HYG-000|contoso.test/lockout-policy",
+      "checkId": "HYG-000",
+      "category": "Hygiene",
+      "severity": "Medium",
+      "title": "No account lockout threshold configured",
+      "target": "contoso.test/lockout-policy",
+      "count": 1,
+      "detail": "",
+      "recommendation": "Password spraying is unthrottled. Evaluate lockout or smart lockout equivalents.",
+      "evidenceRef": "",
+      "sample": []
+    },
+    {
+      "id": "HYG-000|contoso.test/maq",
+      "checkId": "HYG-000",
+      "category": "Hygiene",
+      "severity": "Medium",
+      "title": "ms-DS-MachineAccountQuota is 10 (any user can join computers)",
+      "target": "contoso.test/MAQ",
+      "count": 1,
+      "detail": "",
+      "recommendation": "Set to 0 and delegate join rights to specific groups (enables several RBCD/relay attack paths otherwise).",
+      "evidenceRef": "",
+      "sample": []
+    },
+    {
+      "id": "HYG-001|contoso.test",
+      "checkId": "HYG-001",
+      "category": "Hygiene",
+      "severity": "Medium",
+      "title": "Enabled user accounts inactive > 90 days",
+      "target": "contoso.test",
+      "count": 2,
+      "detail": "LDAP: (&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(|(lastLogonTimestamp<=134268665408488447)(&(!(lastLogonTimestamp=*))(whenCreated<=20260625130900.0Z))))",
+      "recommendation": "Disable after owner validation (change control); feeds attack surface and licensing.",
+      "evidenceRef": "detail/contoso.test-HYG-001.csv",
+      "sample": [
+        "olduser1",
+        "olduser2"
+      ]
+    },
+    {
+      "id": "HYG-005|contoso.test",
+      "checkId": "HYG-005",
+      "category": "Hygiene",
+      "severity": "High",
+      "title": "Enabled accounts not requiring Kerberos pre-authentication (AS-REP roastable)",
+      "target": "contoso.test",
+      "count": 1,
+      "detail": "LDAP: (&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(userAccountControl:1.2.840.113556.1.4.803:=4194304))",
+      "recommendation": "Require pre-auth unless a documented legacy dependency exists.",
+      "evidenceRef": "detail/contoso.test-HYG-005.csv",
+      "sample": [
+        "legacy_app"
+      ]
+    },
+    {
+      "id": "HYG-012|contoso.test",
+      "checkId": "HYG-012",
+      "category": "Hygiene",
+      "severity": "High",
+      "title": "Active computers on unsupported legacy OS (XP/Vista/7/8/2003/2008/2012)",
+      "target": "contoso.test",
+      "count": 1,
+      "detail": "LDAP: (&(objectCategory=computer)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(lastLogonTimestamp>=134268665408488447)(|(operatingSystem=*XP*)(operatingSystem=*Vista*)(operatingSystem=Windows 7*)(operatingSystem=Windows 8*)(operatingSystem=*2003*)(operatingSystem=*2008*)(operatingSystem=*2012*)))",
+      "recommendation": "Isolate, upgrade or retire; confirm ESU coverage where applicable.",
+      "evidenceRef": "detail/contoso.test-HYG-012.csv",
+      "sample": [
+        "WIN7-KIOSK$"
+      ]
+    },
+    {
+      "id": "HYG-014|contoso.test",
+      "checkId": "HYG-014",
+      "category": "Hygiene",
+      "severity": "Medium",
+      "title": "Active Windows computers without a LAPS-managed password",
+      "target": "contoso.test",
+      "count": 1,
+      "detail": "",
+      "recommendation": "Extend LAPS policy scope; note expiration attribute may be unreadable if collector lacks rights (verify on a sample).",
+      "evidenceRef": "detail/contoso.test-HYG-014.csv",
+      "sample": [
+        "WIN7-KIOSK$"
+      ]
+    },
+    {
+      "id": "COLLECT-001|time-002",
+      "checkId": "COLLECT-001",
+      "category": "Collector",
+      "severity": "High",
+      "title": "Collection gap: TIME-002 error - area NOT verified",
+      "target": "TIME-002",
+      "count": 1,
+      "detail": "Check failed: w32tm.exe not found on collector host (install RSAT AD DS tools).",
+      "recommendation": "Fix permissions/connectivity for the collector identity; do not treat this area as healthy.",
+      "evidenceRef": "",
+      "sample": []
+    },
+    {
+      "id": "COLLECT-001|repl-003",
+      "checkId": "COLLECT-001",
+      "category": "Collector",
+      "severity": "Low",
+      "title": "Collection gap: REPL-003 partial - area NOT verified",
+      "target": "REPL-003",
+      "count": 1,
+      "detail": "repadmin failing links: 0; cmdlet-derived failing findings: 2",
+      "recommendation": "Fix permissions/connectivity for the collector identity; do not treat this area as healthy.",
+      "evidenceRef": "",
+      "sample": []
+    }
+  ],
+  "errors": [
+    {
+      "stage": "TIME-002",
+      "target": "check",
+      "message": "w32tm.exe not found on collector host (install RSAT AD DS tools)."
+    },
+    {
+      "stage": "REPL-003",
+      "target": "localhost",
+      "message": "repadmin.exe not found on collector host (install RSAT AD DS tools)."
+    },
+    {
+      "stage": "REPL-003",
+      "target": "127.0.0.2",
+      "message": "repadmin.exe not found on collector host (install RSAT AD DS tools)."
+    },
+    {
+      "stage": "REPL-003",
+      "target": "replsummary",
+      "message": "repadmin.exe not found on collector host (install RSAT AD DS tools)."
+    }
+  ],
+  "rawOutputs": []
+}

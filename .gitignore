@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# Agent runtime state (history DB, archived reports, dry-run payloads) - may contain directory data
+agent/state/
+agent/outbox/
+agent/config/settings.yaml
+
+# Collector test double materialized at test time
+collector/tests/ActiveDirectory/
+
+# Real report bundles must never be committed (only the synthetic sample under samples/)
+ADForestHealth_*/
+!samples/ADForestHealth_contoso.test_20260901-020000/
+.staging/

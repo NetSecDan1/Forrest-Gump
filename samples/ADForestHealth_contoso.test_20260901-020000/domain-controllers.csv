@@ -1,0 +1,4 @@
+"name","domain","site","ipv4Address","operatingSystem","isGlobalCatalog","isReadOnly","reachable","timeSkewSeconds","uptimeDays","minFreeDiskPercent","sysvolState","fsmoRoles"
+"localhost","contoso.test","HQ","127.0.0.1","Windows Server 2022 Datacenter","True","False","True","0",,,,"SchemaMaster;DomainNamingMaster;PDCEmulator;RIDMaster;InfrastructureMaster"
+"127.0.0.2","contoso.test","Branch","127.0.0.2","Windows Server 2016 Standard","True","False","True","95",,,,""
+"dc3.invalid","contoso.test","Branch","10.255.255.1","Windows Server 2012 R2 Standard","False","False","False",,,,,""

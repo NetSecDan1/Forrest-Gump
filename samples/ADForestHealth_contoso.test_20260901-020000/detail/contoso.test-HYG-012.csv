@@ -1,0 +1,2 @@
+"sAMAccountName","objectClass","lastLogonTimestamp","operatingSystem","whenCreated","distinguishedName"
+"WIN7-KIOSK$","computer","2026-03-07","Windows 7 Enterprise","09/23/2023 13:08:59","CN=WIN7-KIOSK$,OU=Test,DC=contoso,DC=test"
