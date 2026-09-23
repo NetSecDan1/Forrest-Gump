@@ -52,3 +52,15 @@ def test_rejected_bundle_alerts_and_returns_2(workdir):
 def test_validate_command(sample_bundle, capsys):
     assert main(["validate", str(sample_bundle)]) == 0
     assert '"forest": "contoso.test"' in capsys.readouterr().out
+
+
+def test_already_processed_bundles_are_not_rehashed(workdir, monkeypatch):
+    cfg = str(workdir / "config" / "settings.yaml")
+    make_bundle(workdir / "inbox", "2026-09-01T02:00:00Z")
+    assert main(["process", "-c", cfg]) == 0
+    import adhealth_agent.cli as cli
+
+    def boom(*a, **k):
+        raise AssertionError("open_bundle must not be called for known reports")
+    monkeypatch.setattr(cli, "open_bundle", boom)
+    assert main(["process", "-c", cfg]) == 0

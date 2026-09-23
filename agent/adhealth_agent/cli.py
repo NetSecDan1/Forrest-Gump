@@ -19,7 +19,7 @@ from pathlib import Path
 
 from .config import Settings, env_secret, load_settings
 from .history import History
-from .ingest import BundleError, discover_bundles, open_bundle
+from .ingest import BundleError, discover_bundles, open_bundle, peek_report_id
 from .models import Report
 from .narrative import StrandsNarrator
 from .publish.sharepoint import SharePointPublisher
@@ -74,6 +74,9 @@ def cmd_process(args) -> int:
     rc = 0
     processed = 0
     for path in discover_bundles(s.inbox):
+        rid = peek_report_id(path)
+        if rid and hist.has_report(rid):
+            continue  # already ingested (and verified) on an earlier run
         try:
             b = open_bundle(path, s.max_file_bytes)
         except BundleError as e:

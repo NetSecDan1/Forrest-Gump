@@ -17,13 +17,13 @@ Everything below is ordered **lab → pilot → production**. Steps marked **CHA
 ## 1. Lab validation (no domain needed)
 
 ```bash
-# Agent tests (30), incl. PowerShell/Python score parity and end-to-end dry run
+# Agent tests (31), incl. PowerShell/Python score parity and end-to-end dry run
 cd agent && pip install -e ".[dev,llm]" && PYTHONPATH=tests python -m pytest -q
 
 # Collector end-to-end against a mock ActiveDirectory module (pwsh 7; root/admin to bind loopback DC ports)
 pwsh -NoProfile -File collector/tests/Invoke-CollectorSmokeTest.ps1
 ```
-Expected: `30 passed`; `Smoke test passed.` The HTML output is in the temp path printed.
+Expected: `31 passed`; `Smoke test passed.` The HTML output is in the temp path printed.
 
 ## 2. Pilot the collector (read-only, 1–2 DCs)
 
@@ -71,9 +71,15 @@ Review the outbox payloads with the identity team. Paste one card JSON into the 
 | `ADHEALTH_GRAPH_TENANT_ID`, `ADHEALTH_GRAPH_CLIENT_ID`, `ADHEALTH_GRAPH_CERT_PATH`, `ADHEALTH_GRAPH_CERT_THUMBPRINT` | SharePoint upload (certificate preferred) |
 | `ANTHROPIC_API_KEY` (or AWS credentials for Bedrock) | Only if `llm.provider` is not `none` |
 
-Flip `dry_run: false` and `sharepoint.enabled: true`. Schedule it:
-* `process`: hourly (cheap and idempotent; already-processed report IDs are skipped).
+Flip `dry_run: false` and `sharepoint.enabled: true`. Schedule it (**CHANGE** on the agent host; uses a separate gMSA with **Read** only on the share):
+
+```powershell
+.\deploy\Register-ADHealthAgentTask.ps1 -GmsaName 'CONTOSO\gmsa-adhealth-agent$' `
+    -AgentExe C:\ADHealth\agent\.venv\Scripts\adhealth-agent.exe -ConfigPath C:\ADHealth\agent\config\settings.yaml -WhatIf
+```
+* `process`: hourly. Cheap and idempotent: bundles already in history are skipped by `reportId` without re-hashing. New bundles are always fully verified.
 * `digest`: 2nd of each month, 08:00 local.
+* Set secrets as **machine** environment variables on this dedicated host (`[Environment]::SetEnvironmentVariable(name, value, 'Machine')`). With no `ANTHROPIC_API_KEY`, the digest uses the template automatically.
 
 ## 5. Operating it
 
@@ -102,7 +108,7 @@ Flip `dry_run: false` and `sharepoint.enabled: true`. Schedule it:
 
 | Component | Backout |
 |---|---|
-| Scheduled tasks | `Unregister-ScheduledTask -TaskPath '\ADHealth\' -TaskName 'ADHealth-Monthly-Full','ADHealth-Daily-Light' -Confirm` |
+| Scheduled tasks | `Unregister-ScheduledTask -TaskPath '\ADHealth\' -TaskName 'ADHealth-Monthly-Full','ADHealth-Daily-Light','ADHealth-Agent-Process','ADHealth-Agent-Digest' -Confirm` |
 | gMSA rights | Remove it from Event Log Readers / Remote Management Users. Delete the gMSA if you are decommissioning |
 | Agent | Stop the schedule. Delete `state/` and `outbox/` (they contain directory data) |
 | Teams | Turn off or delete the two Workflows (this invalidates the URLs) |

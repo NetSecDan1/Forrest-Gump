@@ -18,14 +18,14 @@ DCs ──read-only──▶ Collector (gMSA, scheduled) ──atomic bundle + S
 | `agent/config/` | `settings.example.yaml` (no secrets, only env-var names) and `policy.yaml` (urgent rules, suppressions). |
 | `schema/ad-health-report.schema.json` | The collector → agent contract (schema 1.x). |
 | `samples/` | Synthetic bundle (`contoso.test`) from the mock run. Open `report.html` to see the output. |
-| `deploy/Register-ADHealthCollectorTask.ps1` | EXAMPLE scheduled-task registration (gMSA, `-WhatIf`). |
+| `deploy/Register-ADHealth{Collector,Agent}Task.ps1` | EXAMPLE scheduled-task registration for collector and agent (gMSA, `-WhatIf`). |
 | `docs/ARCHITECTURE.md` | Design, options considered, threat model, check catalog, roadmap. |
 | `docs/RUNBOOK.md` | Prerequisites, pilot, validation, operations, troubleshooting, backout. |
 
 ## Quick start (no domain needed)
 
 ```bash
-cd agent && pip install -e ".[dev,llm]" && PYTHONPATH=tests python -m pytest -q     # 30 tests
+cd agent && pip install -e ".[dev,llm]" && PYTHONPATH=tests python -m pytest -q     # 31 tests
 adhealth-agent validate ../samples/ADForestHealth_contoso.test_20260901-020000
 pwsh -NoProfile -File ../collector/tests/Invoke-CollectorSmokeTest.ps1               # needs root/admin for loopback ports
 ```

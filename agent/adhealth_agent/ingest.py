@@ -94,6 +94,16 @@ def load_report(path: Path) -> Report:
         raise BundleError(f"report.json failed schema validation: {e.error_count()} error(s): {e.errors()[:3]}") from e
 
 
+def peek_report_id(path: Path) -> str | None:
+    """Cheap pre-check: reportId from manifest.json WITHOUT hashing, so an inbox that keeps months of bundles is not
+    re-hashed every run. Only used to skip bundles already in history; new bundles are always fully verified."""
+    try:
+        rid = json.loads((path / "manifest.json").read_text(encoding="utf-8-sig")).get("reportId")
+    except (OSError, json.JSONDecodeError, AttributeError):
+        return None
+    return str(rid) if rid else None
+
+
 def open_bundle(path: Path, max_file_bytes: int) -> Bundle:
     manifest = verify_bundle(path, max_file_bytes)
     report = load_report(path)

@@ -13,6 +13,14 @@
 | No silent failure | Collection gaps become findings. No report for 35 days is its own alert. Rejected or tampered bundles raise an alert. |
 | Nothing a human cannot verify | Every finding carries `checkId`, target, evidence reference, and the exact query in `checks[].command`. The LLM text is checked against the data before it is published. |
 
+## 1a. Decisions of record
+
+| # | Decision | Chosen | Why | Revisit when |
+|---|---|---|---|---|
+| D1 | Transport from the share to the agent | **Option A: the agent reads the share directly** (§3.2). No intermediate push | Fewest hops, no cloud copy of Tier-0 data, nothing extra to fail silently. Hash verification covers integrity | The agent moves to Azure/AWS, or more than one forest feeds it → Option C |
+| D2 | LLM for the monthly narrative | **Anthropic API, `claude-opus-5`**, server-side refusal fallback on | Best narrative quality with the least infra. Only sanitized counts, titles and targets are sent (no account names). Any failure or missing key falls back to the template | A data-residency requirement → `provider: bedrock` (in-region). A policy of no external AI → `provider: none` |
+| D3 | Agent host | Dedicated Windows VM, own read-only gMSA, scheduled tasks (`deploy/Register-ADHealthAgentTask.ps1`) | Native SMB access with Kerberos, same ops model as the collector | Moving to a container platform |
+
 ## 2. End-to-end flow
 
 ```mermaid
@@ -62,7 +70,7 @@ flowchart LR
 
 | Option | How | Pros | Cons | Use when |
 |---|---|---|---|---|
-| **A. Agent reads the share** (recommended to start) | Agent runs on an on-prem Windows/Linux VM with read access to the share | Simplest. No cloud copy of Tier-0 data. No extra moving parts | Agent host joins the Tier-0 blast radius | Pilot and phase 1 |
+| **A. Agent reads the share** (**chosen**, D1) | Agent runs on an on-prem Windows/Linux VM with read access to the share | Simplest. No cloud copy of Tier-0 data. No extra moving parts | Agent host joins the Tier-0 blast radius | Pilot and phase 1 |
 | B. Power Automate + on-prem data gateway | Flow copies new folders to an SPO library; agent reads from SPO | No inbound firewall rules. Low-code | Gateway is another Tier-0-adjacent box. Flow file-size limits. Harder to test | You already run the gateway |
 | C. AzCopy / Blob + Event Grid | Collector host runs `azcopy` with a managed identity or scoped SAS to a private container; a queue-triggered Container Apps Job runs the agent | Event-driven. Scales to many forests. Good audit trail | More infra. Egress of Tier-0 data to cloud storage (encrypt, private endpoint) | Multi-forest, or the agent is hosted in Azure |
 
@@ -71,7 +79,7 @@ Whatever the transport, the agent **re-verifies the manifest hashes**. A partial
 > Integrity ≠ authenticity. Someone with write access to the share can edit a file *and* re-hash the manifest. If that is in your threat model, sign `manifest.json` (Authenticode via `Set-AuthenticodeSignature` with a code-signing cert on the collector host, or an HMAC key protected by DPAPI) and verify the signature in `ingest.py`. This is on the roadmap.
 
 ### 3.3 Agent (Python, Strands Agents + Claude)
-* **Deterministic core:** `ingest` → `history` → `triage`. Pure functions, 30 tests, no network.
+* **Deterministic core:** `ingest` → `history` → `triage`. Pure functions, 31 tests, no network.
 * **LLM narrative:** `narrative.StrandsNarrator` builds a Strands `Agent` with five read-only tools (`get_overview`, `list_findings`, `list_resolved_findings`, `get_metric_trends`, `get_metric_history`). Default model `claude-opus-5` via the Anthropic API with server-side refusal fallback enabled, or **Amazon Bedrock** (`llm.provider: bedrock`) if data must stay in your AWS region. `llm.provider: none` gives the same digest from a template, so the pipeline works without an LLM.
 * **Faithfulness guard** (`validate_narrative`): the model's text is rejected, and the template used instead, if it cites a check ID not in the report, omits any check with an active Critical finding, or drops a required section. The digest card says which narrative source was used.
 * **Prompt-injection posture:** directory-sourced strings (names, event text, error messages) are data. They are control-stripped and length-capped (`sanitize.py`), account names are removed, the system prompt marks tool output as data, and the tools cannot act on anything. The worst outcome of a successful injection is a bad paragraph, which the guard usually catches, and never an action.
