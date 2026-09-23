@@ -10,20 +10,21 @@ Everything below is ordered **lab → pilot → production**. Steps marked **CHA
 | gMSA | e.g. `gmsa-adhealth$`, with `PrincipalsAllowedToRetrieveManagedPassword` = the collector host (**CHANGE**, AD) |
 | Rights for the gMSA | Event Log Readers (domain builtin) and Remote Management Users on DCs for full coverage (**CHANGE**, AD group membership, via your Tier-0 process). **No** Domain Admins. |
 | Drop share | `\\fs01\ADHealth$\inbox`: gMSA **Modify**, agent identity **Read**, Tier-0 admins **Read**, nobody else (**CHANGE**) |
-| Agent host | Python 3.10+ on an internal VM (phase 1) that can read the share. Outbound HTTPS to the Teams Workflow URL, `graph.microsoft.com`, and your LLM endpoint (Anthropic API or Bedrock) if enabled |
+| Agent host | Python 3.10+ on an internal VM (phase 1) that can read the share. Outbound HTTPS to the Teams Workflow URL, `graph.microsoft.com`, and Bedrock Runtime in the approved region (PrivateLink endpoint if your golden path requires it) |
+| Bedrock access | The approved model/inference-profile ID and region from your platform team. An IAM role scoped by `deploy/bedrock-invoke-policy.example.json`. On-prem host → **IAM Roles Anywhere** (host certificate from your PKI + `aws_signing_helper` `credential_process` profile; no long-lived access keys). Model invocation logging per your golden path (**CHANGE**, AWS) |
 | Teams | Two channels plus two Workflows ("When a Teams webhook request is received" → "Post card in a chat or channel") (**CHANGE**, M365) |
 | SharePoint | Entra app registration with Graph **Sites.Selected** (application), admin consent, then grant `write` on the single target site. Certificate credential (**CHANGE**, Entra) |
 
 ## 1. Lab validation (no domain needed)
 
 ```bash
-# Agent tests (31), incl. PowerShell/Python score parity and end-to-end dry run
+# Agent tests (40), incl. PowerShell/Python score parity and end-to-end dry run
 cd agent && pip install -e ".[dev,llm]" && PYTHONPATH=tests python -m pytest -q
 
 # Collector end-to-end against a mock ActiveDirectory module (pwsh 7; root/admin to bind loopback DC ports)
 pwsh -NoProfile -File collector/tests/Invoke-CollectorSmokeTest.ps1
 ```
-Expected: `31 passed`; `Smoke test passed.` The HTML output is in the temp path printed.
+Expected: `40 passed`; `Smoke test passed.` The HTML output is in the temp path printed.
 
 ## 2. Pilot the collector (read-only, 1–2 DCs)
 
@@ -57,7 +58,7 @@ Validate: `Get-ScheduledTask -TaskPath \ADHealth\`; `Start-ScheduledTask -TaskPa
 
 ```bash
 cd agent
-pip install -e ".[llm,graph]"          # llm: Strands + Anthropic; add [bedrock] for Bedrock
+pip install -e ".[llm,graph]"          # llm: Strands + boto3 (Bedrock). Set llm.model_id + llm.bedrock_region, or provider: none for a pilot
 cp config/settings.example.yaml config/settings.yaml   # set inbox to the share path; keep dry_run: true
 adhealth-agent validate "/mnt/adhealth/inbox/ADForestHealth_contoso.com_20261001-020000"
 adhealth-agent process -c config/settings.yaml          # urgent cards -> ./outbox/*.json (not sent)
@@ -69,7 +70,7 @@ Review the outbox payloads with the identity team. Paste one card JSON into the 
 |---|---|
 | `ADHEALTH_TEAMS_URGENT_WEBHOOK`, `ADHEALTH_TEAMS_DIGEST_WEBHOOK` | Workflows URLs (secrets) |
 | `ADHEALTH_GRAPH_TENANT_ID`, `ADHEALTH_GRAPH_CLIENT_ID`, `ADHEALTH_GRAPH_CERT_PATH`, `ADHEALTH_GRAPH_CERT_THUMBPRINT` | SharePoint upload (certificate preferred) |
-| `ANTHROPIC_API_KEY` (or AWS credentials for Bedrock) | Only if `llm.provider` is not `none` |
+| `AWS_CONFIG_FILE` + `AWS_PROFILE` (machine scope) | Point at the Roles Anywhere `credential_process` profile the gMSA's task will use. No access keys in env or files |
 
 Flip `dry_run: false` and `sharepoint.enabled: true`. Schedule it (**CHANGE** on the agent host; uses a separate gMSA with **Read** only on the share):
 
@@ -79,7 +80,7 @@ Flip `dry_run: false` and `sharepoint.enabled: true`. Schedule it (**CHANGE** on
 ```
 * `process`: hourly. Cheap and idempotent: bundles already in history are skipped by `reportId` without re-hashing. New bundles are always fully verified.
 * `digest`: 2nd of each month, 08:00 local.
-* Set secrets as **machine** environment variables on this dedicated host (`[Environment]::SetEnvironmentVariable(name, value, 'Machine')`). With no `ANTHROPIC_API_KEY`, the digest uses the template automatically.
+* Set secrets as **machine** environment variables on this dedicated host (`[Environment]::SetEnvironmentVariable(name, value, 'Machine')`). If Bedrock is unreachable or refuses, the digest uses the template automatically, and the log says why.
 
 ## 5. Operating it
 
@@ -101,7 +102,8 @@ Flip `dry_run: false` and `sharepoint.enabled: true`. Schedule it (**CHANGE** on
 | `DC-001` Critical for a healthy DC | Firewall between collector host and DC | Allow the ports listed in DC-001 from the collector host |
 | `REPL-003` "conflicting signals" | Cmdlets and repadmin disagree | Trust neither alone. Inspect `raw/repadmin-showrepl-<dc>.txt` |
 | Agent: `REJECTED ... SHA-256 mismatch` | Partial copy or edit after collection | Recopy the whole folder. If nobody copied it, treat it as a security event |
-| Agent: narrative `source=deterministic` with warnings | LLM failed or was rejected by the faithfulness guard | See the log warnings. The digest is still correct (template) |
+| Agent: narrative `source=deterministic` with warnings | Bedrock call failed (AccessDenied / model not enabled / wrong region / guardrail intervened) or the output was rejected by the faithfulness guard | See the log warnings. Check the IAM policy resources match the exact profile ARN and **its underlying foundation-model ARNs**. The digest is still correct (template) |
+| Agent exits 1: `llm.model_id is required` / `... blocked by policy` | Config is off the golden path | Set the approved Bedrock model ID and region, or `provider: none` |
 | No digest | No *full* run in history (only light runs) | Check that the monthly task ran without `-Skip*` switches |
 
 ## 7. Rollback / backout

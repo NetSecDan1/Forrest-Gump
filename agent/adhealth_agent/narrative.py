@@ -3,7 +3,7 @@
 Two implementations with the same output contract (Markdown with fixed section headings):
 
 * ``deterministic_narrative`` - template, always available, used when the LLM is disabled or fails validation.
-* ``StrandsNarrator`` - a Strands agent (Claude via Anthropic API or Amazon Bedrock) that explores the triaged
+* ``StrandsNarrator`` - a Strands agent (Claude on Amazon Bedrock - the golden path) that explores the triaged
   report through READ-ONLY tools and writes the digest. It has no tools that touch AD, files or the network.
 
 Faithfulness guard: every check ID the model cites must exist in the report, and every check with an active
@@ -251,22 +251,29 @@ def deterministic_narrative(t: TriageResult) -> str:
 # ------------------------------------------------------------------------------------------ LLM
 
 def build_model(cfg: LlmConfig):
+    cfg.validate()
+    if cfg.provider == "bedrock":
+        # Golden path. Credentials come from the standard AWS chain (on-prem: IAM Roles Anywhere credential_process;
+        # in AWS: the task/instance role) - never from config files.
+        from strands.models.bedrock import BedrockModel
+
+        model_cfg = {"model_id": cfg.model_id, "max_tokens": cfg.max_tokens}
+        if cfg.bedrock_guardrail_id:
+            model_cfg.update(guardrail_id=cfg.bedrock_guardrail_id, guardrail_version=cfg.bedrock_guardrail_version)
+        kwargs = {}
+        if cfg.bedrock_region:
+            kwargs["region_name"] = cfg.bedrock_region
+        if cfg.bedrock_endpoint_url:
+            kwargs["endpoint_url"] = cfg.bedrock_endpoint_url
+        return BedrockModel(**kwargs, **model_cfg)
     if cfg.provider == "anthropic":
+        # BLOCKED BY POLICY (golden path is Bedrock). Kept only pending a removal decision; see CLAUDE.md.
         from strands.models.anthropic import AnthropicModel
 
         params = {}
         if cfg.server_side_fallbacks:
-            # Server-side refusal fallback (Anthropic API). Passed through Strands' request params.
             params = {"extra_headers": {"anthropic-beta": "server-side-fallback-2026-07-01"}, "extra_body": {"fallbacks": "default"}}
-        # API key comes from ANTHROPIC_API_KEY (or an `ant auth login` profile) - never from config files.
         return AnthropicModel(model_id=cfg.model_id, max_tokens=cfg.max_tokens, params=params or None)
-    if cfg.provider == "bedrock":
-        from strands.models.bedrock import BedrockModel
-
-        kwargs = {"model_id": cfg.model_id, "max_tokens": cfg.max_tokens}
-        if cfg.bedrock_region:
-            kwargs["region_name"] = cfg.bedrock_region
-        return BedrockModel(**kwargs)
     raise ValueError(f"Unsupported llm.provider {cfg.provider!r}")
 
 

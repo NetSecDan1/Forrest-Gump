@@ -12,14 +12,17 @@ max_file_bytes: 52428800          # per-file cap when verifying bundles (50 MB)
 policy_file: "policy.yaml"
 
 llm:
-  # Default: Anthropic API (ANTHROPIC_API_KEY env var). Only sanitized counts/titles/targets are sent - no account names.
-  # Missing key or any model error -> automatic fallback to the deterministic template (digest still ships).
-  # Data-residency requirement? set provider: bedrock + your region's model/inference-profile id. No LLM at all? provider: none.
-  provider: anthropic             # anthropic | bedrock | none
-  model_id: claude-opus-5         # Anthropic API model id; for bedrock use your Bedrock model/inference-profile id
+  # Golden path: Claude on Amazon Bedrock via Strands. Only sanitized counts/titles/targets are sent - no account names.
+  # Credentials: standard AWS chain (on-prem host: IAM Roles Anywhere credential_process profile; in AWS: task role).
+  # Any model error -> automatic fallback to the deterministic template (digest still ships).
+  # Config errors (missing model id/region) fail loudly at startup - no silent default model or region.
+  provider: bedrock               # bedrock | none   (use none for a dry-run pilot before Bedrock access is approved)
+  model_id: ""                    # REQUIRED: approved Bedrock model id / inference profile id / ARN from your platform team
+  bedrock_region: ""              # REQUIRED: approved region, e.g. us-east-1
+  bedrock_endpoint_url: ""        # optional: PrivateLink endpoint, e.g. https://vpce-xxxx.bedrock-runtime.us-east-1.vpce.amazonaws.com
+  bedrock_guardrail_id: ""        # optional: Bedrock Guardrail id (set version too)
+  bedrock_guardrail_version: ""
   max_tokens: 16000
-  server_side_fallbacks: true     # Anthropic API only: server-side refusal fallback
-  bedrock_region: ""              # e.g. us-east-1 (bedrock only)
   include_names: false            # keep account names out of LLM prompts
 
 teams:

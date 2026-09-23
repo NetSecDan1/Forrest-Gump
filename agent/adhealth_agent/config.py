@@ -13,12 +13,33 @@ import yaml
 
 @dataclass
 class LlmConfig:
-    provider: str = "none"  # anthropic | bedrock | none
-    model_id: str = "claude-opus-5"
+    # Golden path: Amazon Bedrock through Strands. The Anthropic API provider is retained but blocked by policy.
+    provider: str = "bedrock"  # bedrock | none   ('anthropic' is rejected by validate(): blocked by policy)
+    model_id: str = ""  # REQUIRED for bedrock: your approved model id / inference profile id / ARN - no default on purpose
     max_tokens: int = 16000
-    server_side_fallbacks: bool = True  # Anthropic API only
-    bedrock_region: str = ""
+    bedrock_region: str = ""  # REQUIRED for bedrock: approved region (no silent fallback to Strands' default)
+    bedrock_endpoint_url: str = ""  # PrivateLink/VPC endpoint URL if your golden path mandates it
+    bedrock_guardrail_id: str = ""  # Bedrock Guardrail id, if mandated
+    bedrock_guardrail_version: str = ""
+    server_side_fallbacks: bool = True  # Anthropic API only (ignored for bedrock)
     include_names: bool = False  # account names never leave the boundary unless explicitly enabled
+
+    def validate(self) -> None:
+        if self.provider == "anthropic":
+            raise ValueError("llm.provider 'anthropic' (direct Anthropic API) is blocked by policy; use 'bedrock' (golden path) or 'none'.")
+        if self.provider not in ("bedrock", "none"):
+            raise ValueError(f"llm.provider must be bedrock or none (got {self.provider!r})")
+        if self.provider == "bedrock":
+            if not self.model_id:
+                raise ValueError("llm.model_id is required for bedrock (approved model/inference-profile id or ARN). "
+                                 "Refusing to fall back to the Strands default model, which may be a cross-region profile.")
+            if self.model_id.startswith("claude-"):
+                raise ValueError(f"llm.model_id {self.model_id!r} looks like an Anthropic API id; Bedrock needs a Bedrock "
+                                 "model id, inference profile id or ARN (e.g. the one your platform team publishes).")
+            if not self.bedrock_region and not self.model_id.startswith("arn:"):
+                raise ValueError("llm.bedrock_region is required for bedrock so requests stay in the approved region.")
+            if bool(self.bedrock_guardrail_id) != bool(self.bedrock_guardrail_version):
+                raise ValueError("Set both llm.bedrock_guardrail_id and llm.bedrock_guardrail_version, or neither.")
 
 
 @dataclass
@@ -105,6 +126,8 @@ def load_settings(path: str | os.PathLike) -> Settings:
         q = Path(os.path.expandvars(p))
         return q if q.is_absolute() or str(p).startswith("\\\\") else (base / q).resolve()
 
+    llm = _sub(LlmConfig, raw.get("llm"))
+    llm.validate()
     policy = Policy()
     if raw.get("policy_file"):
         policy = load_policy(rel(raw["policy_file"]))
@@ -114,7 +137,7 @@ def load_settings(path: str | os.PathLike) -> Settings:
         outbox=rel(raw.get("outbox", "outbox")),
         dry_run=bool(raw.get("dry_run", True)),
         max_file_bytes=int(raw.get("max_file_bytes", 50 * 1024 * 1024)),
-        llm=_sub(LlmConfig, raw.get("llm")),
+        llm=llm,
         teams=_sub(TeamsConfig, raw.get("teams")),
         sharepoint=_sub(SharePointConfig, raw.get("sharepoint")),
         policy=policy,

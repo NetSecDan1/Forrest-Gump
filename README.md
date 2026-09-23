@@ -1,6 +1,6 @@
 # Forrest-Gump: AD forest health, collected safely and triaged by an agent
 
-A read-only PowerShell collector produces a detailed Active Directory forest health bundle (HTML + JSON + CSV). A Python agent built on [Strands Agents](https://strandsagents.com) and Claude verifies each bundle and compares it with last month. It sends urgent issues to Teams and publishes a monthly hygiene digest to SharePoint.
+A read-only PowerShell collector produces a detailed Active Directory forest health bundle (HTML + JSON + CSV). A Python agent built on [Strands Agents](https://strandsagents.com) with Claude on Amazon Bedrock verifies each bundle and compares it with last month. It sends urgent issues to Teams and publishes a monthly hygiene digest to SharePoint.
 
 ```
 DCs ──read-only──▶ Collector (gMSA, scheduled) ──atomic bundle + SHA-256 manifest──▶ drop share
@@ -18,14 +18,14 @@ DCs ──read-only──▶ Collector (gMSA, scheduled) ──atomic bundle + S
 | `agent/config/` | `settings.example.yaml` (no secrets, only env-var names) and `policy.yaml` (urgent rules, suppressions). |
 | `schema/ad-health-report.schema.json` | The collector → agent contract (schema 1.x). |
 | `samples/` | Synthetic bundle (`contoso.test`) from the mock run. Open `report.html` to see the output. |
-| `deploy/Register-ADHealth{Collector,Agent}Task.ps1` | EXAMPLE scheduled-task registration for collector and agent (gMSA, `-WhatIf`). |
+| `deploy/` | EXAMPLE scheduled-task registration for collector and agent (gMSA, `-WhatIf`) and a least-privilege Bedrock IAM policy. |
 | `docs/ARCHITECTURE.md` | Design, options considered, threat model, check catalog, roadmap. |
 | `docs/RUNBOOK.md` | Prerequisites, pilot, validation, operations, troubleshooting, backout. |
 
 ## Quick start (no domain needed)
 
 ```bash
-cd agent && pip install -e ".[dev,llm]" && PYTHONPATH=tests python -m pytest -q     # 31 tests
+cd agent && pip install -e ".[dev,llm]" && PYTHONPATH=tests python -m pytest -q     # 40 tests
 adhealth-agent validate ../samples/ADForestHealth_contoso.test_20260901-020000
 pwsh -NoProfile -File ../collector/tests/Invoke-CollectorSmokeTest.ps1               # needs root/admin for loopback ports
 ```

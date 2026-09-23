@@ -1,0 +1,20 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "InvokeApprovedClaudeProfileOnly",
+      "Effect": "Allow",
+      "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
+      "Resource": [
+        "arn:aws:bedrock:us-east-1:111122223333:inference-profile/REPLACE-approved-profile-id",
+        "arn:aws:bedrock:*::foundation-model/REPLACE-underlying-foundation-model-id"
+      ]
+    },
+    {
+      "Sid": "ApplyMandatedGuardrail",
+      "Effect": "Allow",
+      "Action": ["bedrock:ApplyGuardrail"],
+      "Resource": "arn:aws:bedrock:us-east-1:111122223333:guardrail/REPLACE-guardrail-id"
+    }
+  ]
+}

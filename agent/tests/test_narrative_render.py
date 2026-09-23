@@ -39,7 +39,7 @@ def _narrator(agent):
     def factory(tools):
         agent.tools = tools
         return agent
-    return StrandsNarrator(LlmConfig(provider="anthropic"), agent_factory=factory)
+    return StrandsNarrator(LlmConfig(provider="bedrock", model_id="test-profile", bedrock_region="us-east-1"), agent_factory=factory)
 
 
 def test_deterministic_has_all_sections_and_passes_guard(t):
@@ -110,3 +110,23 @@ def test_markdown_renderer_escapes_html():
 def test_digest_html_renders(t):
     page = digest_html(t, deterministic_narrative(t), "September 2026", "deterministic", None)
     assert "<script" not in page and "AD Forest Health Digest" in page
+
+
+def test_bedrock_model_is_built_with_region_endpoint_and_guardrail(monkeypatch):
+    pytest.importorskip("strands")
+    pytest.importorskip("boto3")
+    from adhealth_agent.narrative import build_model
+
+    for k, v in {"AWS_ACCESS_KEY_ID": "test", "AWS_SECRET_ACCESS_KEY": "test"}.items():
+        monkeypatch.setenv(k, v)
+    cfg = LlmConfig(provider="bedrock", model_id="us.anthropic.approved-profile", bedrock_region="us-east-1",
+                    bedrock_endpoint_url="https://vpce-123.bedrock-runtime.us-east-1.vpce.amazonaws.com",
+                    bedrock_guardrail_id="gr-abc", bedrock_guardrail_version="3")
+    m = build_model(cfg)  # no network at construction
+    assert m.config["model_id"] == "us.anthropic.approved-profile"
+    assert m.client.meta.region_name == "us-east-1"
+    assert m.client.meta.endpoint_url.startswith("https://vpce-123.")
+    req = m.format_request([{"role": "user", "content": [{"text": "hi"}]}], None,
+                           system_prompt_content=[{"text": "sys"}])
+    assert req["guardrailConfig"]["guardrailIdentifier"] == "gr-abc"
+    assert req["modelId"] == "us.anthropic.approved-profile"
