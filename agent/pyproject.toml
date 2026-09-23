@@ -16,8 +16,6 @@ dependencies = [
 [project.optional-dependencies]
 # LLM narrative via Strands Agents on Amazon Bedrock (golden path).
 llm = ["strands-agents>=1.10", "boto3>=1.34"]
-# Anthropic API provider - BLOCKED by policy; retained pending removal decision.
-anthropic-api = ["strands-agents[anthropic]>=1.10"]
 # SharePoint publishing via Microsoft Graph (app-only, Sites.Selected).
 graph = ["msal>=1.28"]
 dev = ["pytest>=8", "jsonschema>=4.21"]

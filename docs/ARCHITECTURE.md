@@ -18,7 +18,7 @@
 | # | Decision | Chosen | Why | Revisit when |
 |---|---|---|---|---|
 | D1 | Transport from the share to the agent | **Option A: the agent reads the share directly** (§3.2). No intermediate push | Fewest hops, no cloud copy of Tier-0 data, nothing extra to fail silently. Hash verification covers integrity. With Bedrock, only the sanitized narrative context leaves the network, never the bundle | The agent moves into AWS (natural next step with a Bedrock golden path), or more than one forest feeds it → push bundles to S3 (Option C, S3 instead of Blob) |
-| D2 | LLM for the monthly narrative | **Claude on Amazon Bedrock via Strands (golden path).** Explicit approved model/inference-profile ID and region, optional PrivateLink endpoint and Bedrock Guardrail. The direct Anthropic API is **blocked by policy and rejected in code** | Mandated golden path. The data stays in your AWS account/region under your IAM, CloudTrail and guardrails. Only sanitized counts, titles and targets are sent (no account names). Any model error falls back to the template | Never for provider. `provider: none` if AI is ever disallowed |
+| D2 | LLM for the monthly narrative | **Claude on Amazon Bedrock via Strands (golden path).** Explicit approved model/inference-profile ID and region, optional PrivateLink endpoint and Bedrock Guardrail. No other LLM provider exists in the code | Mandated golden path. The data stays in your AWS account/region under your IAM, CloudTrail and guardrails. Only sanitized counts, titles and targets are sent (no account names). Any model error falls back to the template | Never for provider. `provider: none` if AI is ever disallowed |
 | D3 | Agent host | Dedicated Windows VM, own read-only gMSA, scheduled tasks (`deploy/Register-ADHealthAgentTask.ps1`) | Native SMB access with Kerberos, same ops model as the collector | Moving to a container platform |
 
 ## 2. End-to-end flow
@@ -146,7 +146,7 @@ Whatever the transport, the agent **re-verifies the manifest hashes**. A partial
 | Bundle tampering in transit | SHA-256 manifest verified; reject + alert | Signed manifest (§3.2) |
 | Webhook URL leak → spoofed alerts | Env-var secret, never logged; urllib3 logs quieted | Rotate the Workflow URL; restrict who can edit the flow |
 | Prompt injection via directory data | Data-only tools, sanitization, no names, faithfulness guard, LLM optional | Monitor `narrative source=deterministic` rates |
-| LLM data egress | Counts, titles and targets only. Bedrock-only (other providers rejected in code), explicit region, optional PrivateLink and Guardrail, CloudTrail logging of model invocations. `provider: none` | Data-processing review with privacy/security |
+| LLM data egress | Counts, titles and targets only. Bedrock-only (no other provider in the code), explicit region, optional PrivateLink and Guardrail, CloudTrail logging of model invocations. `provider: none` | Data-processing review with privacy/security |
 | Alert fatigue | Throttle, new-or-escalated rule for Highs, suppressions with expiry | Tune thresholds after 2–3 months of history |
 
 ## 8. Brainstorm: where this can go next (ranked by value / effort)

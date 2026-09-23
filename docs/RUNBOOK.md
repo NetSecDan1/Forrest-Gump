@@ -103,7 +103,7 @@ Flip `dry_run: false` and `sharepoint.enabled: true`. Schedule it (**CHANGE** on
 | `REPL-003` "conflicting signals" | Cmdlets and repadmin disagree | Trust neither alone. Inspect `raw/repadmin-showrepl-<dc>.txt` |
 | Agent: `REJECTED ... SHA-256 mismatch` | Partial copy or edit after collection | Recopy the whole folder. If nobody copied it, treat it as a security event |
 | Agent: narrative `source=deterministic` with warnings | Bedrock call failed (AccessDenied / model not enabled / wrong region / guardrail intervened) or the output was rejected by the faithfulness guard | See the log warnings. Check the IAM policy resources match the exact profile ARN and **its underlying foundation-model ARNs**. The digest is still correct (template) |
-| Agent exits 1: `llm.model_id is required` / `... blocked by policy` | Config is off the golden path | Set the approved Bedrock model ID and region, or `provider: none` |
+| Agent exits 1: `llm.model_id is required` / `llm.provider must be bedrock or none` | Config is off the golden path | Set the approved Bedrock model ID and region, or `provider: none` |
 | No digest | No *full* run in history (only light runs) | Check that the monthly task ran without `-Skip*` switches |
 
 ## 7. Rollback / backout

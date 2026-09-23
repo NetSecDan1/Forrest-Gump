@@ -266,14 +266,6 @@ def build_model(cfg: LlmConfig):
         if cfg.bedrock_endpoint_url:
             kwargs["endpoint_url"] = cfg.bedrock_endpoint_url
         return BedrockModel(**kwargs, **model_cfg)
-    if cfg.provider == "anthropic":
-        # BLOCKED BY POLICY (golden path is Bedrock). Kept only pending a removal decision; see CLAUDE.md.
-        from strands.models.anthropic import AnthropicModel
-
-        params = {}
-        if cfg.server_side_fallbacks:
-            params = {"extra_headers": {"anthropic-beta": "server-side-fallback-2026-07-01"}, "extra_body": {"fallbacks": "default"}}
-        return AnthropicModel(model_id=cfg.model_id, max_tokens=cfg.max_tokens, params=params or None)
     raise ValueError(f"Unsupported llm.provider {cfg.provider!r}")
 
 

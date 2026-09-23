@@ -4,9 +4,9 @@ from adhealth_agent.config import LlmConfig, load_settings
 
 
 @pytest.mark.parametrize("cfg, msg", [
-    (LlmConfig(provider="anthropic", model_id="claude-opus-5"), "blocked by policy"),
+    (LlmConfig(provider="anthropic", model_id="x"), "must be bedrock or none"),
     (LlmConfig(provider="bedrock"), "model_id is required"),
-    (LlmConfig(provider="bedrock", model_id="claude-opus-5", bedrock_region="us-east-1"), "looks like an Anthropic API id"),
+    (LlmConfig(provider="bedrock", model_id="claude-model", bedrock_region="us-east-1"), "is not a Bedrock model id"),
     (LlmConfig(provider="bedrock", model_id="us.anthropic.x"), "bedrock_region is required"),
     (LlmConfig(provider="bedrock", model_id="us.anthropic.x", bedrock_region="us-east-1", bedrock_guardrail_id="g"), "guardrail"),
     (LlmConfig(provider="openai"), "must be bedrock or none"),

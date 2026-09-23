@@ -13,20 +13,17 @@ import yaml
 
 @dataclass
 class LlmConfig:
-    # Golden path: Amazon Bedrock through Strands. The Anthropic API provider is retained but blocked by policy.
-    provider: str = "bedrock"  # bedrock | none   ('anthropic' is rejected by validate(): blocked by policy)
+    # Golden path: Claude on Amazon Bedrock through Strands. No other provider exists.
+    provider: str = "bedrock"  # bedrock | none
     model_id: str = ""  # REQUIRED for bedrock: your approved model id / inference profile id / ARN - no default on purpose
     max_tokens: int = 16000
     bedrock_region: str = ""  # REQUIRED for bedrock: approved region (no silent fallback to Strands' default)
     bedrock_endpoint_url: str = ""  # PrivateLink/VPC endpoint URL if your golden path mandates it
     bedrock_guardrail_id: str = ""  # Bedrock Guardrail id, if mandated
     bedrock_guardrail_version: str = ""
-    server_side_fallbacks: bool = True  # Anthropic API only (ignored for bedrock)
     include_names: bool = False  # account names never leave the boundary unless explicitly enabled
 
     def validate(self) -> None:
-        if self.provider == "anthropic":
-            raise ValueError("llm.provider 'anthropic' (direct Anthropic API) is blocked by policy; use 'bedrock' (golden path) or 'none'.")
         if self.provider not in ("bedrock", "none"):
             raise ValueError(f"llm.provider must be bedrock or none (got {self.provider!r})")
         if self.provider == "bedrock":
@@ -34,7 +31,7 @@ class LlmConfig:
                 raise ValueError("llm.model_id is required for bedrock (approved model/inference-profile id or ARN). "
                                  "Refusing to fall back to the Strands default model, which may be a cross-region profile.")
             if self.model_id.startswith("claude-"):
-                raise ValueError(f"llm.model_id {self.model_id!r} looks like an Anthropic API id; Bedrock needs a Bedrock "
+                raise ValueError(f"llm.model_id {self.model_id!r} is not a Bedrock model id; Bedrock needs a Bedrock "
                                  "model id, inference profile id or ARN (e.g. the one your platform team publishes).")
             if not self.bedrock_region and not self.model_id.startswith("arn:"):
                 raise ValueError("llm.bedrock_region is required for bedrock so requests stay in the approved region.")

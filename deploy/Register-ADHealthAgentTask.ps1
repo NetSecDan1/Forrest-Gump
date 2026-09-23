@@ -12,7 +12,7 @@
       * ADHealth-Agent-Digest  : 2nd of each month at -DigestTime - monthly narrative digest
 
     Runs as a gMSA that has READ on the drop share. Secrets are machine environment variables on this dedicated
-    host (ADHEALTH_TEAMS_*, ADHEALTH_GRAPH_*, ANTHROPIC_API_KEY); keep the host Tier-0 hardened, or move secrets
+    host (ADHEALTH_TEAMS_*, ADHEALTH_GRAPH_*, AWS_CONFIG_FILE/AWS_PROFILE for Bedrock via Roles Anywhere); keep the host Tier-0 hardened, or move secrets
     to a vault when the agent moves to a managed platform.
 
 .PARAMETER GmsaName

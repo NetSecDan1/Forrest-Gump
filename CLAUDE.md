@@ -12,7 +12,7 @@ Pipeline: read-only PowerShell AD forest health **collector** → bundle on a sh
 7. **No account names** in Teams cards or LLM prompts unless `llm.include_names` is explicitly enabled. Tests assert this.
 8. Secrets exist only as env-var names in config. Never log a webhook URL.
 9. Deploy scripts that change anything are labeled EXAMPLE and use `SupportsShouldProcess` with `ConfirmImpact='High'`.
-10. **LLM = Claude on Amazon Bedrock via Strands only (golden path).** The direct Anthropic API is blocked by policy and `LlmConfig.validate()` rejects it. Never add a default model ID or region: both must be explicit.
+10. **LLM = Claude on Amazon Bedrock via Strands only (golden path).** `LlmConfig.validate()` accepts only `bedrock` or `none`. Do not add other providers. Never add a default model ID or region: both must be explicit.
 
 ## Commands
 ```bash
