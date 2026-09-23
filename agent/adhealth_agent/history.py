@@ -58,6 +58,17 @@ class StoredReport:
     findings: dict[str, dict]  # finding_id -> row
 
 
+def stored_from_report(report: Report, bundle_path: str = "") -> StoredReport:
+    """In-memory StoredReport (baseline) without touching the database - used by qualification."""
+    return StoredReport(
+        report_id=report.reportId, forest=report.forest.name.lower(), generated_utc=report.generatedUtc,
+        status=report.summary.overallStatus, score=report.summary.healthScore, coverage=report.summary.checkCoveragePercent,
+        is_full=report.is_full_run, metrics=dict(report.metrics), bundle_path=bundle_path,
+        findings={f.id.lower(): {"finding_id": f.id.lower(), "check_id": f.checkId, "category": f.category, "severity": f.severity,
+                                 "title": f.title, "target": f.target, "count": f.count} for f in report.findings},
+    )
+
+
 def _utc(s: str) -> datetime:
     d = datetime.fromisoformat(s.replace("Z", "+00:00"))
     return d if d.tzinfo else d.replace(tzinfo=timezone.utc)

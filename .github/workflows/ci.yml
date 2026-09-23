@@ -26,8 +26,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Smoke test collector against mock AD (sudo to bind DC ports on loopback)
-        run: sudo pwsh -NoProfile -File collector/tests/Invoke-CollectorSmokeTest.ps1
+      - name: Smoke test collector against mock AD, signed (sudo to bind DC ports on loopback)
+        run: sudo pwsh -NoProfile -File collector/tests/Invoke-CollectorSmokeTest.ps1 -OutputPath "$RUNNER_TEMP/smoke" -ResultFile "$RUNNER_TEMP/smoke.json"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Cross-verify PowerShell-signed bundle with the Python agent
+        working-directory: agent
+        run: |
+          sudo chmod -R a+rX "$RUNNER_TEMP/smoke" "$RUNNER_TEMP/smoke.json"
+          pip install -e ".[dev]"
+          ADHEALTH_SMOKE_RESULT="$RUNNER_TEMP/smoke.json" PYTHONPATH=tests python -m pytest -q tests/test_signing.py -k powershell
+          adhealth-agent validate "$(python -c "import json,os;print(json.load(open(os.environ['RUNNER_TEMP']+'/smoke.json', encoding='utf-8-sig'))['bundle'])")" \
+            --require-signature --trusted-thumbprint "$(python -c "import json,os;print(json.load(open(os.environ['RUNNER_TEMP']+'/smoke.json', encoding='utf-8-sig'))['thumbprint'])")"
+
+  agent-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build agent container image
+        run: docker build -t adhealth-agent:ci agent
+      - name: Image runs as non-root and CLI starts
+        run: |
+          test "$(docker run --rm --entrypoint id adhealth-agent:ci -u)" != "0"
+          docker run --rm adhealth-agent:ci --help
 
   collector-lint:
     runs-on: windows-latest

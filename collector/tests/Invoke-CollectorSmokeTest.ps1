@@ -15,7 +15,10 @@
     pwsh ./collector/tests/Invoke-CollectorSmokeTest.ps1
 #>
 [CmdletBinding()]
-param([string]$OutputPath = (Join-Path ([System.IO.Path]::GetTempPath()) "adhealth-smoke-$([guid]::NewGuid().ToString('N').Substring(0,8))"))
+param(
+    [string]$OutputPath = (Join-Path ([System.IO.Path]::GetTempPath()) "adhealth-smoke-$([guid]::NewGuid().ToString('N').Substring(0,8))"),
+    [string]$ResultFile   # optional: writes {bundle, thumbprint} JSON so CI can cross-verify with the Python agent
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -33,11 +36,22 @@ foreach ($port in 389, 88, 445, 135, 53, 3268) {
     catch { Write-Warning "Cannot bind port $port ($($_.Exception.Message)); mock DCs will look unreachable." }
 }
 
+# Throwaway self-signed RSA signing cert in CurrentUser\My (TEST ONLY; removed in finally).
+$rsaKey = [System.Security.Cryptography.RSA]::Create(2048)
+$req = [System.Security.Cryptography.X509Certificates.CertificateRequest]::new('CN=adhealth-smoke-signing', $rsaKey,
+    [System.Security.Cryptography.HashAlgorithmName]::SHA256, [System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
+$ephemeral = $req.CreateSelfSigned([DateTimeOffset]::UtcNow.AddDays(-1), [DateTimeOffset]::UtcNow.AddDays(30))
+$flags = [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]'Exportable,PersistKeySet,UserKeySet'
+$signCert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($ephemeral.Export('Pfx', 'smoke'), 'smoke', $flags)
+$store = [System.Security.Cryptography.X509Certificates.X509Store]::new('My', 'CurrentUser')
+$store.Open('ReadWrite'); $store.Add($signCert); $store.Close()
+
 $failures = [System.Collections.Generic.List[string]]::new()
 function Assert-That([bool]$Condition, [string]$Message) { if (-not $Condition) { $failures.Add($Message); Write-Host "FAIL: $Message" -ForegroundColor Red } else { Write-Host "ok:   $Message" } }
 
 try {
-    & pwsh -NoProfile -File $collector -OutputPath $OutputPath -SkipDcDiag -SkipEventLogs -SkipRemoteCim -PortTimeoutMs 500 | Out-Host
+    & pwsh -NoProfile -File $collector -OutputPath $OutputPath -SkipDcDiag -SkipEventLogs -SkipRemoteCim -PortTimeoutMs 500 `
+        -SigningCertificateThumbprint $signCert.Thumbprint | Out-Host
     $code = $LASTEXITCODE
     Assert-That ($code -in 0, 3) "collector exit code is 0 or 3 (got $code)"
 
@@ -68,12 +82,20 @@ try {
     # TIME-002/REPL-003 need w32tm/repadmin (absent on test hosts) - they may be Partial/Error; nothing else may error.
     $unexpected = @($errored | Where-Object { $_ -notin 'TIME-002' })
     Assert-That ($unexpected.Count -eq 0) "no unexpected check errors (errored: $($errored -join ', '))"
+    $sigDoc = Get-Content (Join-Path $b 'manifest.sig.json') -Raw | ConvertFrom-Json
+    $okSig = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPublicKey($signCert).VerifyData([IO.File]::ReadAllBytes((Join-Path $b 'manifest.json')), [Convert]::FromBase64String($sigDoc.signature),
+        [System.Security.Cryptography.HashAlgorithmName]::SHA256, [System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
+    Assert-That $okSig 'manifest.sig.json verifies against the signing certificate'
+    Assert-That ($sigDoc.thumbprint -eq $signCert.Thumbprint) 'signature names the expected signer thumbprint'
+    Assert-That ($r.collector.parameters.Signed -eq $true) 'report records that the bundle was signed'
+    if ($ResultFile) { @{ bundle = $b; thumbprint = $signCert.Thumbprint } | ConvertTo-Json | Set-Content -LiteralPath $ResultFile -Encoding utf8 }
     $html = Get-Content (Join-Path $b 'report.html') -Raw
     Assert-That ($html -notmatch '<script') 'HTML contains no script tags'
     Write-Host "Bundle: $b"
 }
 finally {
     foreach ($l in $listeners) { $l.Stop() }
+    $store.Open('ReadWrite'); $store.Remove($signCert); $store.Close()
 }
 
 if ($failures.Count -gt 0) { Write-Host "$($failures.Count) assertion(s) failed." -ForegroundColor Red; exit 1 }

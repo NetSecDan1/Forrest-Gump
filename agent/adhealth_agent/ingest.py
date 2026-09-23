@@ -8,14 +8,17 @@ A bundle is only trusted if:
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
 from pydantic import ValidationError
 
 from . import SUPPORTED_SCHEMA_MAJOR
+from .config import IntegrityConfig
 from .models import Report
 
 
@@ -28,6 +31,7 @@ class Bundle:
     path: Path
     report: Report
     manifest: dict
+    signer: dict | None = None  # {"thumbprint", "subject", "trusted"} when manifest.sig.json is present
 
 
 def discover_bundles(inbox: Path) -> list[Path]:
@@ -48,11 +52,85 @@ def _sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def verify_bundle(path: Path, max_file_bytes: int) -> dict:
+def _norm_thumb(t: str) -> str:
+    return "".join(ch for ch in str(t) if ch.isalnum()).upper()
+
+
+def verify_manifest_signature(path: Path, manifest_bytes: bytes, manifest: dict, integrity: IntegrityConfig | None) -> dict | None:
+    """Authenticity: manifest.sig.json must be a valid signature over the exact manifest bytes by a pinned signer.
+
+    Integrity (hashes) proves files match the manifest; this proves the manifest came from the collector's key.
+    """
+    integrity = integrity or IntegrityConfig()
+    sig_path = path / "manifest.sig.json"
+    if not sig_path.is_file():
+        if integrity.require_signature:
+            raise BundleError("Bundle is not signed (manifest.sig.json missing) and integrity.require_signature is true")
+        return None
+    from cryptography import x509
+    from cryptography.exceptions import InvalidSignature
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
+    from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
+
     try:
-        manifest = json.loads((path / "manifest.json").read_text(encoding="utf-8-sig"))
-    except (OSError, json.JSONDecodeError) as e:
+        doc = json.loads(sig_path.read_text(encoding="utf-8-sig"))
+        der = base64.b64decode(doc["certificate"], validate=True)
+        sig = base64.b64decode(doc["signature"], validate=True)
+        algorithm = str(doc["algorithm"])
+        cert = x509.load_der_x509_certificate(der)
+    except (OSError, ValueError, KeyError, TypeError) as e:
+        raise BundleError(f"manifest.sig.json unreadable: {type(e).__name__}") from e
+    thumb = hashlib.sha1(der).hexdigest().upper()  # noqa: S324 - Windows certificate thumbprint convention, identity only
+    if _norm_thumb(doc.get("thumbprint", thumb)) != thumb:
+        raise BundleError("manifest.sig.json thumbprint does not match its certificate")
+    pinned = {_norm_thumb(t) for t in integrity.trusted_signer_thumbprints}
+    trusted = thumb in pinned
+    if pinned and not trusted:
+        raise BundleError(f"Bundle signed by untrusted certificate {thumb} (not in integrity.trusted_signer_thumbprints)")
+    if integrity.require_signature and not pinned:
+        raise BundleError("integrity.require_signature is true but no trusted_signer_thumbprints are configured")
+    signed_at = _parse_time(manifest.get("generatedUtc"))
+    nb = getattr(cert, "not_valid_before_utc", None) or cert.not_valid_before.replace(tzinfo=timezone.utc)
+    na = getattr(cert, "not_valid_after_utc", None) or cert.not_valid_after.replace(tzinfo=timezone.utc)
+    if signed_at and not (nb <= signed_at <= na):
+        raise BundleError(f"Signing certificate was not valid at collection time ({signed_at.isoformat()})")
+    key = cert.public_key()
+    try:
+        if algorithm == "RSA-PKCS1v15-SHA256" and isinstance(key, rsa.RSAPublicKey):
+            key.verify(sig, manifest_bytes, padding.PKCS1v15(), hashes.SHA256())
+        elif algorithm == "ECDSA-P1363-SHA256" and isinstance(key, ec.EllipticCurvePublicKey):
+            n = len(sig) // 2
+            key.verify(encode_dss_signature(int.from_bytes(sig[:n], "big"), int.from_bytes(sig[n:], "big")),
+                       manifest_bytes, ec.ECDSA(hashes.SHA256()))
+        else:
+            raise BundleError(f"Unsupported signature algorithm/key combination: {algorithm}")
+    except InvalidSignature as e:
+        raise BundleError("Manifest signature is INVALID (manifest altered after signing, or forged)") from e
+    return {"thumbprint": thumb, "subject": cert.subject.rfc4514_string(), "trusted": trusted}
+
+
+def _parse_time(v) -> datetime | None:
+    if not v:
+        return None
+    try:
+        d = datetime.fromisoformat(str(v).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+
+
+def _read_manifest(path: Path) -> tuple[bytes, dict]:
+    try:
+        raw = (path / "manifest.json").read_bytes()
+        return raw, json.loads(raw.decode("utf-8-sig"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as e:
         raise BundleError(f"manifest.json unreadable: {e}") from e
+
+
+def verify_bundle(path: Path, max_file_bytes: int, manifest: dict | None = None) -> dict:
+    if manifest is None:
+        manifest = _read_manifest(path)[1]
     files = manifest.get("files") or []
     if isinstance(files, dict):
         files = [files]
@@ -104,9 +182,11 @@ def peek_report_id(path: Path) -> str | None:
     return str(rid) if rid else None
 
 
-def open_bundle(path: Path, max_file_bytes: int) -> Bundle:
-    manifest = verify_bundle(path, max_file_bytes)
+def open_bundle(path: Path, max_file_bytes: int, integrity: IntegrityConfig | None = None) -> Bundle:
+    raw, manifest = _read_manifest(path)
+    signer = verify_manifest_signature(path, raw, manifest, integrity)  # authenticity first, then integrity
+    verify_bundle(path, max_file_bytes, manifest)
     report = load_report(path)
     if manifest.get("reportId") and manifest["reportId"] != report.reportId:
         raise BundleError("manifest.reportId does not match report.json reportId")
-    return Bundle(path=path, report=report, manifest=manifest)
+    return Bundle(path=path, report=report, manifest=manifest, signer=signer)

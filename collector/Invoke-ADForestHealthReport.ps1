@@ -98,6 +98,11 @@
 .PARAMETER RedactNames
     Replace account names in report.json, findings and detail CSVs with stable hashed identifiers.
 
+.PARAMETER SigningCertificateThumbprint
+    Sign manifest.json with this certificate (LocalMachine\My or CurrentUser\My, private key required) and write
+    manifest.sig.json. The agent pins the thumbprint, so an attacker who can write to the share cannot forge a
+    bundle by editing files and re-hashing the manifest. Fails closed: if signing fails, nothing is published.
+
 .EXAMPLE
     .\Invoke-ADForestHealthReport.ps1 -OutputPath D:\ADHealth -DomainController LABDC01,LABDC02 -Verbose
     Pilot: two DCs only, full check set, verbose progress.
@@ -142,7 +147,8 @@ param(
     [switch]$SkipEventLogs,
     [switch]$SkipRemoteCim,
     [switch]$SkipHygiene,
-    [switch]$RedactNames
+    [switch]$RedactNames,
+    [ValidatePattern('^[0-9A-Fa-f ]{40,59}$')][string]$SigningCertificateThumbprint
 )
 
 Set-StrictMode -Version Latest
@@ -386,6 +392,12 @@ try {
 catch {
     Write-Error "Discovery failed (ActiveDirectory module / forest bind): $($_.Exception.Message)"
     exit 1
+}
+
+$signingCert = $null
+if ($SigningCertificateThumbprint) {
+    try { $signingCert = Find-ADHealthSigningCertificate -Thumbprint $SigningCertificateThumbprint }
+    catch { Write-Error "Signing requested but unavailable: $($_.Exception.Message)"; exit 1 }
 }
 
 $forestName = [string]$forestObj.Name
@@ -1483,6 +1495,7 @@ $report = [pscustomobject][ordered]@{
             TimeSkewWarnSeconds = $TimeSkewWarnSeconds; PrivilegedGroupWarnCount = $PrivilegedGroupWarnCount
             Domain = @($Domain); DomainController = @($DomainController)
             SkipDcDiag = [bool]$SkipDcDiag; SkipEventLogs = [bool]$SkipEventLogs; SkipRemoteCim = [bool]$SkipRemoteCim; SkipHygiene = [bool]$SkipHygiene; RedactNames = [bool]$RedactNames
+            Signed = [bool]$signingCert
         }
         hygieneRules    = @($script:HygieneRules | ForEach-Object { [pscustomobject]@{ id = $_.Id; filter = $_.Filter } })
     }
@@ -1509,6 +1522,7 @@ $report = [pscustomobject][ordered]@{
 
 try {
     Export-ADHealthArtifacts -Report $report -Directory $script:BundleDir
+    if ($signingCert) { Protect-ADHealthManifest -Directory $script:BundleDir -Certificate $signingCert }   # before publish; fail closed
     $final = Join-Path $OutputPath $bundleName
     Move-Item -LiteralPath $script:BundleDir -Destination $final   # same-volume rename = atomic hand-off
 }

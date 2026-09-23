@@ -16,6 +16,19 @@ def test_llm_config_rejects_off_golden_path(cfg, msg):
         cfg.validate()
 
 
+@pytest.mark.parametrize("model_id", [
+    "anthropic.some-claude-model-v1:0", "us.anthropic.some-profile", "amazon.nova-pro-v1:0",
+    "meta.llama-model-v1:0", "mistral.some-model-v1:0",
+])
+def test_any_bedrock_vendor_is_accepted(model_id):
+    LlmConfig(provider="bedrock", model_id=model_id, bedrock_region="us-east-1").validate()
+
+
+def test_mode_is_validated():
+    with pytest.raises(ValueError, match="llm.mode"):
+        LlmConfig(provider="none", mode="chat").validate()
+
+
 def test_valid_configs():
     LlmConfig(provider="none").validate()
     LlmConfig(provider="bedrock", model_id="us.anthropic.x", bedrock_region="us-east-1").validate()

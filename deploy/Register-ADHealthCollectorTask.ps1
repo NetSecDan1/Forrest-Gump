@@ -30,6 +30,10 @@
 .PARAMETER IncludeDaily
     Also register the daily light task.
 
+.PARAMETER SigningCertificateThumbprint
+    Passed to the collector so every bundle's manifest is signed. The certificate must be in LocalMachine\My and
+    the gMSA needs read access to its private key (certlm.msc > Manage Private Keys - a CHANGE).
+
 .EXAMPLE
     .\Register-ADHealthCollectorTask.ps1 -GmsaName 'CONTOSO\gmsa-adhealth$' -CollectorPath C:\ADHealth\collector\Invoke-ADForestHealthReport.ps1 -OutputPath \\fs01\ADHealth$\inbox -WhatIf
     Shows exactly what would be registered. Nothing is changed.
@@ -44,7 +48,8 @@ param(
     [Parameter(Mandatory)][string]$OutputPath,
     [ValidatePattern('^\d{2}:\d{2}$')][string]$MonthlyTime = '02:00',
     [ValidatePattern('^\d{2}:\d{2}$')][string]$DailyTime = '05:30',
-    [switch]$IncludeDaily
+    [switch]$IncludeDaily,
+    [ValidatePattern('^[0-9A-Fa-f ]{40,59}$')][string]$SigningCertificateThumbprint
 )
 
 Set-StrictMode -Version Latest
@@ -85,6 +90,12 @@ function New-TaskXml {
 
 $start = (Get-Date).Date.AddDays(1).ToString('yyyy-MM-dd')
 $base = "-NoProfile -NonInteractive -ExecutionPolicy RemoteSigned -File `"$CollectorPath`" -OutputPath `"$OutputPath`""
+if ($SigningCertificateThumbprint) {
+    $tp = ($SigningCertificateThumbprint -replace '\s', '').ToUpperInvariant()
+    $certPath = "Cert:\LocalMachine\My\$tp"
+    if (-not (Test-Path $certPath)) { throw "Signing certificate $tp not found in LocalMachine\My." }
+    $base += " -SigningCertificateThumbprint $tp"
+}
 $tasks = @(
     @{ Name = 'ADHealth-Monthly-Full'; Args = "$base -HoursBack 720"; Desc = 'AD forest health - monthly full read-only collection'
         Trigger = "<CalendarTrigger><StartBoundary>${start}T${MonthlyTime}:00</StartBoundary><ScheduleByMonth><DaysOfMonth><Day>1</Day></DaysOfMonth><Months><January/><February/><March/><April/><May/><June/><July/><August/><September/><October/><November/><December/></Months></ScheduleByMonth></CalendarTrigger>" }

@@ -1,0 +1,7 @@
+state/
+outbox/
+qualification/
+tests/
+**/__pycache__/
+*.egg-info/
+config/settings.yaml

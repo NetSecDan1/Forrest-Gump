@@ -1,8 +1,10 @@
 """adhealth-agent command line.
 
-  adhealth-agent validate <bundle_dir>          integrity + schema check, prints summary (no side effects)
+  adhealth-agent validate <bundle_dir>          signature + integrity + schema check, prints summary (no side effects)
   adhealth-agent process  -c settings.yaml      ingest new bundles, store history, archive, urgent Teams alerts
   adhealth-agent digest   -c settings.yaml      monthly narrative digest -> SharePoint page + Teams card
+  adhealth-agent qualify  -c settings.yaml -b <bundle> [-b ...]   model qualification evidence (guard pass rate, latency, tokens)
+  adhealth-agent doctor   -c settings.yaml [--online] [--probe-model]   preflight checks for the agent host
 
 Exit codes: 0 ok; 2 completed but some bundles were rejected or deliveries failed; 1 fatal.
 """
@@ -17,11 +19,14 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .config import Settings, env_secret, load_settings
+from .config import IntegrityConfig, Settings, env_secret, load_settings
+from .doctor import run_doctor
 from .history import History
 from .ingest import BundleError, discover_bundles, open_bundle, peek_report_id
 from .models import Report
 from .narrative import StrandsNarrator
+from .ops import configure_logging, write_heartbeat
+from .qualify import run_qualification, write_evidence
 from .publish.sharepoint import SharePointPublisher
 from .publish.teams import TeamsPublisher
 from .render import digest_html, teams_digest_card, teams_urgent_card
@@ -51,8 +56,10 @@ def _simple_alert(forest: str, items: list[UrgentItem]) -> dict:
 
 def cmd_validate(args) -> int:
     path = Path(args.bundle)
+    integrity = IntegrityConfig(require_signature=args.require_signature, trusted_signer_thumbprints=args.trusted_thumbprint or [])
     try:
-        b = open_bundle(path, args.max_file_bytes)
+        integrity.validate()
+        b = open_bundle(path, args.max_file_bytes, integrity)
     except BundleError as e:
         print(f"INVALID: {e}")
         return 2
@@ -61,6 +68,7 @@ def cmd_validate(args) -> int:
         "reportId": r.reportId, "forest": r.forest.name, "generatedUtc": r.generatedUtc.isoformat(), "status": r.summary.overallStatus,
         "score": r.summary.healthScore, "coverage": r.summary.checkCoveragePercent, "fullRun": r.is_full_run,
         "findings": len(r.findings), "checks": len(r.checks), "files": len(b.manifest.get("files", [])),
+        "signer": b.signer,
     }, indent=2))
     return 0
 
@@ -78,7 +86,7 @@ def cmd_process(args) -> int:
         if rid and hist.has_report(rid):
             continue  # already ingested (and verified) on an earlier run
         try:
-            b = open_bundle(path, s.max_file_bytes)
+            b = open_bundle(path, s.max_file_bytes, s.integrity)
         except BundleError as e:
             rc = 2
             log.error("REJECTED %s: %s", path.name, e)
@@ -114,7 +122,8 @@ def cmd_process(args) -> int:
         shutil.copyfile(path / "report.json", archive / f"{r.reportId}.json")
         hist.save_report(r, str(archive / f"{r.reportId}.json"))
         processed += 1
-        log.info("Processed %s forest=%s status=%s score=%d urgent=%d", path.name, forest, r.summary.overallStatus, t.score, len(t.urgent))
+        log.info("Processed %s forest=%s status=%s score=%d urgent=%d signer=%s", path.name, forest, r.summary.overallStatus,
+                 t.score, len(t.urgent), (b.signer or {}).get("thumbprint", "unsigned"))
 
         due = [u for u in t.urgent if hist.should_alert(forest, u.key, now, s.policy.realert_after_days)]
         if due:
@@ -183,18 +192,42 @@ def cmd_digest(args) -> int:
         except RuntimeError as e:
             rc = 2
             log.error("Digest delivery failed: %s", e)
-        log.info("Digest %s %s: score=%d source=%s", forest, month, t.score, nar.source)
+        log.info("Digest %s %s: score=%d source=%s model=%s latencyMs=%s usage=%s", forest, month, t.score, nar.source,
+                 nar.meta.get("modelId"), nar.meta.get("latencyMs"), nar.meta.get("usage"))
     hist.close()
     return rc
+
+
+def cmd_qualify(args) -> int:
+    s = load_settings(args.config)
+    result = run_qualification(s, [Path(b) for b in args.bundle], args.runs, args.min_pass_rate)
+    jpath, mpath = write_evidence(result, Path(args.out))
+    print(json.dumps({k: result[k] for k in ("verdict", "passRate", "attempts", "failureReasons", "latencyMs", "tokens")}, indent=2))
+    print(f"Evidence: {jpath}\n          {mpath}")
+    return 0 if result["verdict"] == "PASS" else 2
+
+
+def cmd_doctor(args) -> int:
+    s = load_settings(args.config)
+    checks = run_doctor(s, online=args.online, probe_model=args.probe_model)
+    width = max(len(c.name) for c in checks)
+    for c in checks:
+        print(f"{c.status:<5} {c.name:<{width}}  {c.detail}")
+    if any(c.status == "FAIL" for c in checks):
+        return 1
+    return 2 if any(c.status == "WARN" for c in checks) else 0
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="adhealth-agent", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("-v", "--verbose", action="store_true")
+    ap.add_argument("--log-format", choices=["text", "json"], default="text", help="json = one object per line for SIEM/CloudWatch")
     sub = ap.add_subparsers(dest="cmd", required=True)
     v = sub.add_parser("validate", help="verify a bundle (read-only)")
     v.add_argument("bundle")
     v.add_argument("--max-file-bytes", type=int, default=50 * 1024 * 1024)
+    v.add_argument("--require-signature", action="store_true", help="fail if manifest.sig.json is missing")
+    v.add_argument("--trusted-thumbprint", action="append", help="pinned signer thumbprint (repeatable)")
     v.set_defaults(fn=cmd_validate)
     p = sub.add_parser("process", help="ingest new bundles and send urgent alerts")
     p.add_argument("-c", "--config", required=True)
@@ -204,18 +237,36 @@ def main(argv: list[str] | None = None) -> int:
     d.add_argument("--month", help="YYYY-MM; default: latest full report")
     d.add_argument("--forest")
     d.set_defaults(fn=cmd_digest)
+    q = sub.add_parser("qualify", help="qualify the configured model against real bundles (guard pass rate, latency, tokens)")
+    q.add_argument("-c", "--config", required=True)
+    q.add_argument("-b", "--bundle", action="append", required=True, help="bundle directory (repeatable; same forest = month-over-month)")
+    q.add_argument("--runs", type=int, default=3, help="attempts per bundle (default 3)")
+    q.add_argument("--min-pass-rate", type=float, default=0.9)
+    q.add_argument("--out", default="qualification", help="evidence output directory")
+    q.set_defaults(fn=cmd_qualify)
+    dr = sub.add_parser("doctor", help="preflight checks for the agent host")
+    dr.add_argument("-c", "--config", required=True)
+    dr.add_argument("--online", action="store_true", help="also call STS GetCallerIdentity")
+    dr.add_argument("--probe-model", action="store_true", help="also send one minimal model request")
+    dr.set_defaults(fn=cmd_doctor)
     args = ap.parse_args(argv)
-    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    # Keep third-party HTTP logs quiet (they can include URLs, i.e. webhook secrets).
-    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    configure_logging(args.log_format, args.verbose)
+    started = datetime.now(timezone.utc)
+    rc = 1
     try:
-        return args.fn(args)
-    except BundleError as e:
+        rc = args.fn(args)
+    except (BundleError, ValueError) as e:
         log.error("%s", e)
-        return 1
+        rc = 1
     except Exception as e:  # noqa: BLE001
         log.exception("Fatal: %s", type(e).__name__)
-        return 1
+        rc = 1
+    if args.cmd in ("process", "digest"):
+        try:
+            write_heartbeat(load_settings(args.config).state_db.parent, args.cmd, started, rc)
+        except Exception as e:  # noqa: BLE001 - heartbeat must never mask the real exit code
+            log.warning("Heartbeat not written: %s", type(e).__name__)
+    return rc
 
 
 if __name__ == "__main__":

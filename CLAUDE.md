@@ -1,6 +1,6 @@
 # CLAUDE.md: working in this repo
 
-Pipeline: read-only PowerShell AD forest health **collector** → bundle on a share → Python **agent** (Strands + Claude) → Teams / SharePoint. Read `docs/ARCHITECTURE.md` before a non-trivial change.
+Pipeline: read-only PowerShell AD forest health **collector** → bundle on a share → Python **agent** (Strands Agents, model-agnostic, Bedrock) → Teams / SharePoint. Read `docs/ARCHITECTURE.md` before a non-trivial change.
 
 ## Invariants (do not break)
 1. **Collector is read-only.** No `Set-/New-/Remove-/Add-/Move-/Rename-/Enable-/Disable-/Reset-` cmdlets against AD, DNS, GPO, services or registry. No `repadmin /syncall`, `/replicate`, `/removelingeringobjects`, `nltest /sc_reset`, `w32tm /resync`, and no `dcdiag /fix`. The only writes allowed are files under `-OutputPath`.
@@ -12,13 +12,16 @@ Pipeline: read-only PowerShell AD forest health **collector** → bundle on a sh
 7. **No account names** in Teams cards or LLM prompts unless `llm.include_names` is explicitly enabled. Tests assert this.
 8. Secrets exist only as env-var names in config. Never log a webhook URL.
 9. Deploy scripts that change anything are labeled EXAMPLE and use `SupportsShouldProcess` with `ConfirmImpact='High'`.
-10. **LLM = Claude on Amazon Bedrock via Strands only (golden path).** `LlmConfig.validate()` accepts only `bedrock` or `none`. Do not add other providers. Never add a default model ID or region: both must be explicit.
+10. **Model-agnostic, Strands + Bedrock.** Never hard-code a model family: prompts, the guard and parsing must stay vendor-neutral. Providers live in the `llm.py` registry and only `bedrock` is approved; adding one needs architecture/security review. `LlmConfig.validate()` accepts only `bedrock` or `none`. Never add a default model ID or region. Changing model or mode needs a passing `adhealth-agent qualify` run.
+11. **Signing format is a contract** between `Protect-ADHealthManifest` (PowerShell) and `verify_manifest_signature` (Python). Change both together; CI cross-verifies a PowerShell-signed bundle in Python.
 
 ## Commands
 ```bash
 cd agent && PYTHONPATH=tests python -m pytest -q                              # agent tests
 pwsh -NoProfile -File collector/tests/Invoke-CollectorSmokeTest.ps1           # collector e2e vs mock AD (root for ports <1024)
-adhealth-agent validate samples/ADForestHealth_contoso.test_20260901-020000   # bundle integrity + schema
+adhealth-agent validate samples/ADForestHealth_contoso.test_20260901-020000   # bundle integrity + schema (+ --require-signature --trusted-thumbprint X)
+adhealth-agent doctor -c <settings.yaml> [--online] [--probe-model]           # agent host preflight
+adhealth-agent qualify -c <settings.yaml> -b <bundle> [-b <bundle>]           # model change evidence
 ```
 Regenerate the sample after collector changes: run the smoke test, copy the bundle into `samples/`, scrub host/identity, and re-export with `Export-ADHealthArtifacts` so the manifest hashes match.
 

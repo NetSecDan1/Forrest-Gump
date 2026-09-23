@@ -256,3 +256,64 @@ function Export-ADHealthArtifacts {
     }
     [System.IO.File]::WriteAllText((Join-Path $Directory 'manifest.json'), ($manifest | ConvertTo-Json -Depth 5), $utf8)
 }
+
+function Find-ADHealthSigningCertificate {
+    <#
+    .SYNOPSIS
+        Locates a signing certificate WITH a private key by thumbprint in LocalMachine\My, then CurrentUser\My.
+        Uses the X509Store API (not the Cert: drive) so it works in Windows PowerShell 5.1 and PowerShell 7.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Thumbprint)
+    $tp = ($Thumbprint -replace '[^0-9A-Fa-f]', '').ToUpperInvariant()
+    foreach ($loc in 'LocalMachine', 'CurrentUser') {
+        $store = New-Object System.Security.Cryptography.X509Certificates.X509Store('My', $loc)
+        try {
+            $store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadOnly -bor [System.Security.Cryptography.X509Certificates.OpenFlags]::OpenExistingOnly)
+            $hit = @($store.Certificates | Where-Object { $_.Thumbprint -eq $tp -and $_.HasPrivateKey })
+            if ($hit.Count -gt 0) { return $hit[0] }
+        }
+        catch { Write-Verbose "Store $loc\My not available: $($_.Exception.Message)" }
+        finally { $store.Close() }
+    }
+    throw "Signing certificate $tp with an accessible private key was not found in LocalMachine\My or CurrentUser\My."
+}
+
+function Protect-ADHealthManifest {
+    <#
+    .SYNOPSIS
+        Signs manifest.json (exact bytes) and writes manifest.sig.json next to it.
+        RSA -> PKCS#1 v1.5 / SHA-256; ECDSA -> SHA-256 with IEEE P1363 (r||s) signature encoding.
+        The agent verifies the signature and pins the signer thumbprint (agent/config integrity.trusted_signer_thumbprints).
+    #>
+    [CmdletBinding(SupportsShouldProcess)]
+    param(
+        [Parameter(Mandatory)][string]$Directory,
+        [Parameter(Mandatory)][System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate
+    )
+    $manifestPath = Join-Path $Directory 'manifest.json'
+    if (-not $PSCmdlet.ShouldProcess($manifestPath, 'Sign manifest')) { return }
+    $bytes = [System.IO.File]::ReadAllBytes($manifestPath)
+    $sha256 = [System.Security.Cryptography.HashAlgorithmName]::SHA256
+    $rsa = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($Certificate)
+    if ($rsa) {
+        $sig = $rsa.SignData($bytes, $sha256, [System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
+        $alg = 'RSA-PKCS1v15-SHA256'
+    }
+    else {
+        $ec = [System.Security.Cryptography.X509Certificates.ECDsaCertificateExtensions]::GetECDsaPrivateKey($Certificate)
+        if (-not $ec) { throw 'Signing certificate has neither an RSA nor an ECDSA private key.' }
+        $sig = $ec.SignData($bytes, $sha256)
+        $alg = 'ECDSA-P1363-SHA256'
+    }
+    $doc = [ordered]@{
+        algorithm   = $alg
+        signature   = [Convert]::ToBase64String($sig)
+        certificate = [Convert]::ToBase64String($Certificate.RawData)
+        thumbprint  = $Certificate.Thumbprint
+        subject     = $Certificate.Subject
+        signedUtc   = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+    }
+    $utf8 = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText((Join-Path $Directory 'manifest.sig.json'), ($doc | ConvertTo-Json), $utf8)
+}

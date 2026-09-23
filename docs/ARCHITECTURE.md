@@ -18,8 +18,10 @@
 | # | Decision | Chosen | Why | Revisit when |
 |---|---|---|---|---|
 | D1 | Transport from the share to the agent | **Option A: the agent reads the share directly** (§3.2). No intermediate push | Fewest hops, no cloud copy of Tier-0 data, nothing extra to fail silently. Hash verification covers integrity. With Bedrock, only the sanitized narrative context leaves the network, never the bundle | The agent moves into AWS (natural next step with a Bedrock golden path), or more than one forest feeds it → push bundles to S3 (Option C, S3 instead of Blob) |
-| D2 | LLM for the monthly narrative | **Claude on Amazon Bedrock via Strands (golden path).** Explicit approved model/inference-profile ID and region, optional PrivateLink endpoint and Bedrock Guardrail. No other LLM provider exists in the code | Mandated golden path. The data stays in your AWS account/region under your IAM, CloudTrail and guardrails. Only sanitized counts, titles and targets are sent (no account names). Any model error falls back to the template | Never for provider. `provider: none` if AI is ever disallowed |
-| D3 | Agent host | Dedicated Windows VM, own read-only gMSA, scheduled tasks (`deploy/Register-ADHealthAgentTask.ps1`) | Native SMB access with Kerberos, same ops model as the collector | Moving to a container platform |
+| D2 | LLM for the monthly narrative | **Model-agnostic on Strands Agents; Amazon Bedrock is the approved provider.** Any Bedrock model (Anthropic, Amazon Nova, Meta, Mistral…) selected by configuration: explicit model/inference-profile ID and region, optional PrivateLink and Bedrock Guardrail. `agent` mode (read-only tools) or `single_shot` mode (data inlined) for models without tool use. A model is used in production only after `adhealth-agent qualify` passes | Mandated golden path, no vendor lock-in: the data stays in your AWS account/region under your IAM, CloudTrail and guardrails. Only sanitized counts, titles and targets are sent (no account names). Any model error falls back to the template | A new provider is proposed → register it in `llm.py` after architecture/security review. `provider: none` if AI is ever disallowed |
+| D3 | Agent host | Dedicated Windows VM, own read-only gMSA, scheduled tasks (`deploy/Register-ADHealthAgentTask.ps1`). A non-root container image (`agent/Dockerfile`) is ready for the AWS move | Native SMB access with Kerberos, same ops model as the collector | Moving to ECS/Fargate or Bedrock AgentCore Runtime (image already exists) |
+| D4 | Bundle authenticity | **Signed manifests**: the collector signs `manifest.json` with a certificate from your internal CA (`-SigningCertificateThumbprint`); the agent verifies it and pins the signer thumbprint (`integrity.*`) | Hashes only catch corruption. A pinned signature also stops someone with write access to the share from editing a report and re-hashing | Certificate rotation: pin both old and new thumbprints during the overlap |
+| D5 | Model change control | `qualify` produces JSON/Markdown evidence (guard pass rate, failure reasons, latency p50/p95, tokens) over real bundles; default bar 90% | A model swap is a production change to what people read; it needs evidence, not a hunch | Raise the bar or the runs count once history exists |
 
 ## 2. End-to-end flow
 
@@ -33,10 +35,10 @@ flowchart LR
   C -- ".staging → atomic rename<br/>manifest.json written last" --> S[("Drop share<br/>\\\\fs01\\ADHealth$\\inbox")]
   S -- "Option A: agent reads share<br/>Option B/C: sync to SPO/Blob" --> A
   subgraph AG["Agent host"]
-    A["adhealth-agent process<br/>verify hashes → validate schema"]
+    A["adhealth-agent process<br/>verify signature → hashes → schema"]
     H[("History<br/>SQLite")]
     TR["Deterministic triage<br/>score · diff · suppressions · urgent rules"]
-    N["Strands agent (Claude)<br/>read-only tools over triaged data<br/>+ faithfulness guard"]
+    N["Strands agent (approved Bedrock model)<br/>read-only tools over triaged data<br/>+ faithfulness guard"]
     A --> H --> TR
     TR --> N
   end
@@ -76,11 +78,12 @@ flowchart LR
 
 Whatever the transport, the agent **re-verifies the manifest hashes**. A partial or tampered copy is rejected and alerted, never half-processed.
 
-> Integrity ≠ authenticity. Someone with write access to the share can edit a file *and* re-hash the manifest. If that is in your threat model, sign `manifest.json` (Authenticode via `Set-AuthenticodeSignature` with a code-signing cert on the collector host, or an HMAC key protected by DPAPI) and verify the signature in `ingest.py`. This is on the roadmap.
+> Integrity ≠ authenticity. Someone with write access to the share can edit a file *and* re-hash the manifest. The collector therefore **signs** `manifest.json` (RSA PKCS#1 v1.5 or ECDSA, SHA-256) with a certificate whose private key only the collector host holds. The agent verifies the signature over the exact manifest bytes, checks the certificate was valid at collection time, and **pins** the signer thumbprint (D4). A CI job signs a bundle in PowerShell/.NET and verifies it in Python, so the two implementations can't drift apart.
 
-### 3.3 Agent (Python, Strands Agents + Claude)
-* **Deterministic core:** `ingest` → `history` → `triage`. Pure functions, 40 tests, no network.
-* **LLM narrative:** `narrative.StrandsNarrator` builds a Strands `Agent` with five read-only tools (`get_overview`, `list_findings`, `list_resolved_findings`, `get_metric_trends`, `get_metric_history`). The model is **Claude on Amazon Bedrock** (Strands `BedrockModel`, Converse API). `model_id` and `bedrock_region` are required and validated. The agent refuses to fall back to Strands' built-in default, which is a *global* cross-region profile. PrivateLink (`bedrock_endpoint_url`) and Bedrock Guardrails (`bedrock_guardrail_id/version`) pass straight through. AWS credentials come from the standard chain: IAM Roles Anywhere on the on-prem host, a task role in AWS. Least-privilege IAM: `deploy/bedrock-invoke-policy.example.json`. `llm.provider: none` gives the same digest from a template, so the pipeline works without an LLM.
+### 3.3 Agent (Python, Strands Agents, model-agnostic)
+* **Deterministic core:** `ingest` → `history` → `triage`. Pure functions, fully unit-tested, no network.
+* **LLM narrative (model-agnostic):** `narrative.StrandsNarrator` runs a Strands `Agent`. The model comes from a provider registry (`llm.py`) where only `bedrock` is registered, so any Bedrock model works through configuration. In `agent` mode the model uses five read-only tools (`get_overview`, `list_findings`, `list_resolved_findings`, `get_metric_trends`, `get_metric_history`). In `single_shot` mode, for models without tool use, the same sanitized views are inlined in the prompt and marked as data. `model_id` and `bedrock_region` are required and validated, and the agent refuses to fall back to a framework default model or a cross-region profile. PrivateLink (`bedrock_endpoint_url`), Bedrock Guardrails, timeouts and adaptive retries are configuration. AWS credentials come from the standard chain: IAM Roles Anywhere on-prem, a task role in AWS. Least-privilege IAM: `deploy/bedrock-invoke-policy.example.json`. Every run logs model, latency and token usage. `llm.provider: none` gives the same digest from a template.
+* **Model qualification (`qualify`):** runs the real narrator N times over real bundles and records guard pass rate, failure reasons, latency and tokens as change evidence (D5). The prompt and guard are model-neutral, so switching vendors is a config change plus a qualification run.
 * **Faithfulness guard** (`validate_narrative`): the model's text is rejected, and the template used instead, if it cites a check ID not in the report, omits any check with an active Critical finding, or drops a required section. The digest card says which narrative source was used.
 * **Prompt-injection posture:** directory-sourced strings (names, event text, error messages) are data. They are control-stripped and length-capped (`sanitize.py`), account names are removed, the system prompt marks tool output as data, and the tools cannot act on anything. The worst outcome of a successful injection is a bad paragraph, which the guard usually catches, and never an action.
 * **Where it runs:** start on the same management VM as a Windows scheduled task or systemd timer (`process` every hour after the collector windows, `digest` on the 2nd of the month). Later, a container (Azure Container Apps Job / AWS ECS scheduled task) with a managed identity.
@@ -143,7 +146,7 @@ Whatever the transport, the agent **re-verifies the manifest hashes**. A partial
 |---|---|---|
 | The report is an attacker's map (kerberoastable, delegation, stale admins) | Tier-0 share ACLs (gMSA write, agent read, admins read). `-RedactNames` available. Names never go to Teams or the LLM | Retention policy on share and SPO library. Sensitivity label on the library |
 | Collector host compromise | gMSA, no DA, read-only code, code in version control with PR review | AppLocker/WDAC to allow only the signed collector script |
-| Bundle tampering in transit | SHA-256 manifest verified; reject + alert | Signed manifest (§3.2) |
+| Bundle tampering / forgery | SHA-256 manifest plus **signed manifest with a pinned signer**; reject + alert | Protect the signing key: non-exportable, readable only by the collector gMSA; alert on certificate changes |
 | Webhook URL leak → spoofed alerts | Env-var secret, never logged; urllib3 logs quieted | Rotate the Workflow URL; restrict who can edit the flow |
 | Prompt injection via directory data | Data-only tools, sanitization, no names, faithfulness guard, LLM optional | Monitor `narrative source=deterministic` rates |
 | LLM data egress | Counts, titles and targets only. Bedrock-only (no other provider in the code), explicit region, optional PrivateLink and Guardrail, CloudTrail logging of model invocations. `provider: none` | Data-processing review with privacy/security |
@@ -151,7 +154,7 @@ Whatever the transport, the agent **re-verifies the manifest hashes**. A partial
 
 ## 8. Brainstorm: where this can go next (ranked by value / effort)
 
-1. **Signed manifests + authenticity check** (small). Closes the tampering gap.
+1. ~~Signed manifests + authenticity check~~ **Done (D4).** Next: move the signing key to an HSM/TPM-backed key storage provider.
 2. **GPO health module**: AD vs SYSVOL version mismatch, unlinked/empty GPOs, GPOs with broken permissions. Needs the `GroupPolicy` module (RSAT, first-party).
 3. **LDAP signing / channel binding readiness**: aggregate 2887/2889 counts per client IP to size the enforcement project.
 4. **AD CS module**: template flags risky for ESC1/ESC2/ESC4-style abuse, CA health, expiring CA certs, using `certutil` and LDAP reads only (no third-party modules unless approved).

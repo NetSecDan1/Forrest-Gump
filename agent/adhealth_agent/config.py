@@ -13,30 +13,52 @@ import yaml
 
 @dataclass
 class LlmConfig:
-    # Golden path: Claude on Amazon Bedrock through Strands. No other provider exists.
-    provider: str = "bedrock"  # bedrock | none
-    model_id: str = ""  # REQUIRED for bedrock: your approved model id / inference profile id / ARN - no default on purpose
-    max_tokens: int = 16000
-    bedrock_region: str = ""  # REQUIRED for bedrock: approved region (no silent fallback to Strands' default)
+    """Model-agnostic: Strands is the framework, the model is configuration. Approved provider: bedrock."""
+    provider: str = "bedrock"  # bedrock | none   (registered providers live in llm.py)
+    model_id: str = ""  # REQUIRED: approved Bedrock model id / inference profile id / ARN (any vendor) - no default
+    mode: str = "agent"  # agent: model explores read-only tools | single_shot: data inlined, for models without tool use
+    max_tokens: int = 4096
+    temperature: float | None = None  # None = provider default
+    request_timeout_seconds: int = 120
+    max_attempts: int = 3  # botocore adaptive retries (throttling)
+    bedrock_region: str = ""  # REQUIRED for bedrock (unless model_id is an ARN): no silent default region
     bedrock_endpoint_url: str = ""  # PrivateLink/VPC endpoint URL if your golden path mandates it
     bedrock_guardrail_id: str = ""  # Bedrock Guardrail id, if mandated
     bedrock_guardrail_version: str = ""
+    max_findings_in_prompt: int = 150  # single_shot: cap on inlined findings (most severe first)
     include_names: bool = False  # account names never leave the boundary unless explicitly enabled
 
     def validate(self) -> None:
         if self.provider not in ("bedrock", "none"):
             raise ValueError(f"llm.provider must be bedrock or none (got {self.provider!r})")
-        if self.provider == "bedrock":
-            if not self.model_id:
-                raise ValueError("llm.model_id is required for bedrock (approved model/inference-profile id or ARN). "
-                                 "Refusing to fall back to the Strands default model, which may be a cross-region profile.")
-            if self.model_id.startswith("claude-"):
-                raise ValueError(f"llm.model_id {self.model_id!r} is not a Bedrock model id; Bedrock needs a Bedrock "
-                                 "model id, inference profile id or ARN (e.g. the one your platform team publishes).")
-            if not self.bedrock_region and not self.model_id.startswith("arn:"):
-                raise ValueError("llm.bedrock_region is required for bedrock so requests stay in the approved region.")
-            if bool(self.bedrock_guardrail_id) != bool(self.bedrock_guardrail_version):
-                raise ValueError("Set both llm.bedrock_guardrail_id and llm.bedrock_guardrail_version, or neither.")
+        if self.mode not in ("agent", "single_shot"):
+            raise ValueError(f"llm.mode must be agent or single_shot (got {self.mode!r})")
+        if self.provider == "none":
+            return
+        if not self.model_id:
+            raise ValueError("llm.model_id is required (approved model/inference-profile id or ARN). "
+                             "Refusing to fall back to a framework default model, which may be a cross-region profile.")
+        # Bedrock ids are '<vendor>.<model>', '<geo>.<vendor>.<model>' or an ARN - vendor-neutral check.
+        if not (self.model_id.startswith("arn:") or "." in self.model_id):
+            raise ValueError(f"llm.model_id {self.model_id!r} is not a Bedrock model id; use '<vendor>.<model>', an "
+                             "inference profile id or an ARN, as published by your platform team.")
+        if not self.bedrock_region and not self.model_id.startswith("arn:"):
+            raise ValueError("llm.bedrock_region is required for bedrock so requests stay in the approved region.")
+        if bool(self.bedrock_guardrail_id) != bool(self.bedrock_guardrail_version):
+            raise ValueError("Set both llm.bedrock_guardrail_id and llm.bedrock_guardrail_version, or neither.")
+        if not 1 <= self.max_attempts <= 10 or not 10 <= self.request_timeout_seconds <= 900:
+            raise ValueError("llm.max_attempts must be 1-10 and llm.request_timeout_seconds 10-900.")
+
+
+@dataclass
+class IntegrityConfig:
+    """Bundle authenticity. Hashes alone stop corruption; a pinned signature stops forgery by share writers."""
+    require_signature: bool = False  # set true in production once the collector signs
+    trusted_signer_thumbprints: list[str] = field(default_factory=list)  # SHA-1 thumbprints as shown in the cert store
+
+    def validate(self) -> None:
+        if self.require_signature and not self.trusted_signer_thumbprints:
+            raise ValueError("integrity.require_signature is true but integrity.trusted_signer_thumbprints is empty")
 
 
 @dataclass
@@ -87,6 +109,7 @@ class Settings:
     dry_run: bool = True
     max_file_bytes: int = 50 * 1024 * 1024
     llm: LlmConfig = field(default_factory=LlmConfig)
+    integrity: IntegrityConfig = field(default_factory=IntegrityConfig)
     teams: TeamsConfig = field(default_factory=TeamsConfig)
     sharepoint: SharePointConfig = field(default_factory=SharePointConfig)
     policy: Policy = field(default_factory=Policy)
@@ -125,6 +148,8 @@ def load_settings(path: str | os.PathLike) -> Settings:
 
     llm = _sub(LlmConfig, raw.get("llm"))
     llm.validate()
+    integrity = _sub(IntegrityConfig, raw.get("integrity"))
+    integrity.validate()
     policy = Policy()
     if raw.get("policy_file"):
         policy = load_policy(rel(raw["policy_file"]))
@@ -135,6 +160,7 @@ def load_settings(path: str | os.PathLike) -> Settings:
         dry_run=bool(raw.get("dry_run", True)),
         max_file_bytes=int(raw.get("max_file_bytes", 50 * 1024 * 1024)),
         llm=llm,
+        integrity=integrity,
         teams=_sub(TeamsConfig, raw.get("teams")),
         sharepoint=_sub(SharePointConfig, raw.get("sharepoint")),
         policy=policy,

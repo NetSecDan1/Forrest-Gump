@@ -12,18 +12,29 @@ max_file_bytes: 52428800          # per-file cap when verifying bundles (50 MB)
 policy_file: "policy.yaml"
 
 llm:
-  # Golden path: Claude on Amazon Bedrock via Strands. Only sanitized counts/titles/targets are sent - no account names.
-  # Credentials: standard AWS chain (on-prem host: IAM Roles Anywhere credential_process profile; in AWS: task role).
-  # Any model error -> automatic fallback to the deterministic template (digest still ships).
+  # Model-agnostic: Strands Agents is the framework; the model is configuration. Approved provider: Amazon Bedrock
+  # (any Bedrock model - Anthropic, Amazon Nova, Meta, Mistral, ...). Run `adhealth-agent qualify` before changing
+  # model_id or mode and attach the evidence to the change record.
+  # Only sanitized counts/titles/targets are sent - no account names. Model errors -> template fallback.
   # Config errors (missing model id/region) fail loudly at startup - no silent default model or region.
   provider: bedrock               # bedrock | none   (use none for a dry-run pilot before Bedrock access is approved)
   model_id: ""                    # REQUIRED: approved Bedrock model id / inference profile id / ARN from your platform team
+  mode: agent                     # agent (model calls read-only tools) | single_shot (data inlined; for models without tool use)
   bedrock_region: ""              # REQUIRED: approved region, e.g. us-east-1
   bedrock_endpoint_url: ""        # optional: PrivateLink endpoint, e.g. https://vpce-xxxx.bedrock-runtime.us-east-1.vpce.amazonaws.com
   bedrock_guardrail_id: ""        # optional: Bedrock Guardrail id (set version too)
   bedrock_guardrail_version: ""
-  max_tokens: 16000
+  max_tokens: 4096
+  temperature: null               # null = model default
+  request_timeout_seconds: 120
+  max_attempts: 3                 # adaptive retries on throttling
   include_names: false            # keep account names out of LLM prompts
+
+# Bundle authenticity. The collector signs manifest.json with -SigningCertificateThumbprint; pin that thumbprint here.
+# List two thumbprints during certificate rotation. Turn require_signature on once the collector signs.
+integrity:
+  require_signature: false
+  trusted_signer_thumbprints: []  # e.g. ["A95D2B124FE09F51076410FF42BAEBDC4BE4497B"]
 
 teams:
   urgent_webhook_env: ADHEALTH_TEAMS_URGENT_WEBHOOK   # Workflows "When a Teams webhook request is received" URL

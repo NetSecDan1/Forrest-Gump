@@ -27,19 +27,21 @@ def _good_md(t) -> str:
 
 class FakeAgent:
     def __init__(self, reply=None, exc=None):
-        self.reply, self.exc, self.tools = reply, exc, None
+        self.reply, self.exc, self.tools, self.prompt = reply, exc, None, None
 
     def __call__(self, prompt):
+        self.prompt = prompt
         if self.exc:
             raise self.exc
         return self.reply
 
 
-def _narrator(agent):
+def _narrator(agent, mode="agent"):
     def factory(tools):
         agent.tools = tools
         return agent
-    return StrandsNarrator(LlmConfig(provider="bedrock", model_id="test-profile", bedrock_region="us-east-1"), agent_factory=factory)
+    cfg = LlmConfig(provider="bedrock", model_id="vendor.test-model", bedrock_region="us-east-1", mode=mode)
+    return StrandsNarrator(cfg, agent_factory=factory)
 
 
 def test_deterministic_has_all_sections_and_passes_guard(t):
@@ -115,7 +117,7 @@ def test_digest_html_renders(t):
 def test_bedrock_model_is_built_with_region_endpoint_and_guardrail(monkeypatch):
     pytest.importorskip("strands")
     pytest.importorskip("boto3")
-    from adhealth_agent.narrative import build_model
+    from adhealth_agent.llm import build_model
 
     for k, v in {"AWS_ACCESS_KEY_ID": "test", "AWS_SECRET_ACCESS_KEY": "test"}.items():
         monkeypatch.setenv(k, v)
@@ -130,3 +132,25 @@ def test_bedrock_model_is_built_with_region_endpoint_and_guardrail(monkeypatch):
                            system_prompt_content=[{"text": "sys"}])
     assert req["guardrailConfig"]["guardrailIdentifier"] == "gr-abc"
     assert req["modelId"] == "us.anthropic.approved-profile"
+
+
+def test_single_shot_mode_inlines_sanitized_data_without_tools(t):
+    agent = FakeAgent(_good_md(t))
+    res = _narrator(agent, mode="single_shot").generate(t, "September 2026")
+    assert res.source == "llm"
+    assert agent.tools == []
+    assert "<report_data>" in agent.prompt and "olduser1" not in agent.prompt
+    assert res.meta["mode"] == "single_shot" and res.meta["modelId"] == "vendor.test-model"
+    assert res.meta["latencyMs"] >= 0
+
+
+def test_rejected_output_is_kept_for_qualification_evidence(t):
+    pytest.importorskip("strands")
+    res = _narrator(FakeAgent("## Executive summary\nnothing")).generate(t, "September 2026")
+    assert res.source == "deterministic" and res.rejected_markdown.startswith("## Executive summary")
+
+
+def test_only_bedrock_provider_is_registered():
+    from adhealth_agent.llm import registered_providers
+
+    assert registered_providers() == ["bedrock"]
