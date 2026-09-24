@@ -1,0 +1,30 @@
+# custom_rules.example.yaml
+# Environment-specific triage rules and agent instructions
+# Copy to custom_rules.yaml in your environment; .gitignore keeps it out of the repo
+# These rules override or supplement the default policy.yaml deterministic urgency logic
+#
+# Example: suppress a known issue, override severity for your environment, add custom metrics
+
+# Suppressed findings (environment-specific)
+suppressions:
+  # - id: "REPL-8606|DC-Name"
+  #   reason: "Known lingering object from legacy DC decommission, in backlog for cleanup"
+  #   owner: "alice@contoso.com"
+  #   expires: "2026-12-31"  # yyyy-mm-dd
+
+# Custom environment notes for the agent's digest narrative
+# (included in the model's sanitized context if llm.mode = agent)
+environment_notes:
+  # forest: "contoso.com"
+  # sla_replication_minutes: 15
+  # backup_window: "20:00-04:00 UTC"
+  # critical_events: ["Event 1988 (lingering objects)", "Event 4013 (Kerberos clock skew)"]
+
+# Optional: custom health baselines for your environment
+# If you add new metrics to the collector, define thresholds here
+baselines:
+  # replication_delay_max_minutes: 30
+  # kerberos_skew_max_seconds: 5
+  # sysvol_latency_max_seconds: 2
+
+# TODO: populate with your environment's rules, do NOT commit to GitHub

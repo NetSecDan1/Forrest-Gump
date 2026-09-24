@@ -102,6 +102,278 @@ adhealth-agent qualify -c config/settings.yaml -b <last-month-bundle> -b <this-m
 ```
 This runs the real narrator N times per bundle through the same tools, sanitization and faithfulness guard. It reports `verdict` (default bar: 90% guard pass rate), failure reasons, latency p50/p95 and token usage, and writes JSON and Markdown evidence to attach to the change record. Any Bedrock model can be used. If a model can't do tool use, set `llm.mode: single_shot` and qualify again. Exit `0` = PASS, `2` = FAIL.
 
+## 4b. Test Environment Implementation (Estimated Timeline)
+
+**Estimated effort: 2–4 days for a pilot forest (1–3 DCs), assuming prerequisites are met.**
+
+This section consolidates steps 2–4a into a sequential walkthrough for a test environment, with key validation points.
+
+### Prerequisites (before you start)
+
+- [ ] **Lab validation passed** (`§1`): `66 tests pass`, smoke test produces HTML output
+- [ ] **Test domain** available: at least 1–2 domain-joined test DCs, or a lab VM with AD, DNS, LDAP, Kerberos
+- [ ] **Network access**: collector host can reach all test DCs (LDAP, RPC, WinRM); agent host can reach collector's file share
+- [ ] **Accounts**: gMSA (e.g., `gmsa-adhealth-test$`) in test domain, at least one domain admin account for initial config
+- [ ] **Teams tenant** (optional for pilot): create two webhook URLs for urgent alerts and digest (or mock them with dummy HTTPS endpoints)
+- [ ] **AWS account**: at least temporary Bedrock invoke + IAM Roles Anywhere certs (for agent), or skip Bedrock and use `provider: none` for dry-run
+
+### Day 1–2: Collector on Test Domain
+
+**Goal**: Verify the collector runs on test DCs, finds issues, and exports signed bundles to a test share.
+
+#### 1. Create the test share and gMSA
+
+```powershell
+# On your file server (Tier-0):
+New-Item -ItemType Directory -Path "C:\ADHealth$\test-inbox" -Force
+$adhealth_gmsa = Get-ADServiceAccount -Identity 'gmsa-adhealth-test$' -ErrorAction SilentlyContinue
+if (-not $adhealth_gmsa) {
+    New-ADServiceAccount -Name 'gmsa-adhealth-test$' -DNSHostName collector-host.test.contoso.com -ManagedPasswordIntervalInDays 30
+}
+
+# Grant the gMSA to the collector host:
+Add-ADComputerServiceAccount -Identity collector-host$ -ServiceAccount 'gmsa-adhealth-test$'
+
+# Share permissions:
+icacls C:\ADHealth$\test-inbox /grant "CONTOSO\gmsa-adhealth-test`$:(OI)(CI)M" /grant "CONTOSO\Domain Admins:(OI)(CI)R"
+```
+
+#### 2. Clone the repo onto the collector host
+
+```powershell
+# On the test collector host (C:\Forrest-Gump or equivalent):
+git clone https://github.com/your-org/forrest-gump.git C:\Forrest-Gump
+cd C:\Forrest-Gump
+```
+
+#### 3. Test the collector locally (as yourself first)
+
+```powershell
+# Run against 1–2 test DCs first, output to a local path:
+.\collector\Invoke-ADForestHealthReport.ps1 -OutputPath D:\ADHealth-test `
+    -DomainController DC01.test.contoso.com, DC02.test.contoso.com -Verbose
+```
+
+**Validation:**
+- Exit code `0` or `3` (gaps are OK for a test environment)
+- `D:\ADHealth-test\ADForestHealth_<forest>_<stamp>\manifest.json` exists
+- Open `report.html` in a browser; check a few findings against `repadmin /showrepl`, `dcdiag`, `w32tm /stripchart`
+- **Note runtime:** if it takes 30 minutes on 2 DCs, set `-MaxRuntimeMinutes 45` in the task
+
+#### 4. Grant gMSA rights and re-test
+
+```powershell
+# On Tier-0 (or via your change control):
+Add-ADGroupMember -Identity "Event Log Readers" -Members 'gmsa-adhealth-test$'
+Add-ADGroupMember -Identity "Remote Management Users" -Members 'gmsa-adhealth-test$' -ErrorAction SilentlyContinue  # on each DC WinRM group
+
+# Test running as the gMSA via the task (next step will do this):
+```
+
+#### 5. Schedule the collector task
+
+```powershell
+# On the collector host:
+.\deploy\Register-ADHealthCollectorTask.ps1 -GmsaName 'CONTOSO\gmsa-adhealth-test$' `
+    -CollectorPath C:\Forrest-Gump\collector\Invoke-ADForestHealthReport.ps1 `
+    -OutputPath "\\fileserver\ADHealth$\test-inbox" -IncludeDaily -WhatIf
+# Review output, then run without -WhatIf to register
+```
+
+#### 6. Run the task manually to verify
+
+```powershell
+# On the collector host:
+Start-ScheduledTask -TaskPath '\ADHealth\' -TaskName 'ADHealth-Daily-Light'
+# Wait 2–5 minutes, then check:
+Get-ScheduledTask -TaskPath '\ADHealth\' -TaskName 'ADHealth-Daily-Light' | select LastTaskResult, LastRunTime
+# Should be 0 or 3 (0 = no gaps, 3 = gaps found, both are OK)
+
+# Check the share:
+ls "\\fileserver\ADHealth$\test-inbox"
+# Should show ADForestHealth_*.zip or folder with manifest.json
+```
+
+**Expected at end of Day 1–2:**
+- Collector task runs without errors
+- Bundles appear on the share every 24 hours (for Daily-Light) and at the start of the month (Monthly-Full)
+- At least one bundle is ready for the agent
+
+### Day 3: Agent on Separate VM
+
+**Goal**: Deploy the agent to a separate Windows or Linux VM, validate bundle reading, and test dry-run alerts.
+
+#### 1. Clone the repo onto the agent host
+
+```bash
+# On the agent VM (not the collector host):
+git clone https://github.com/your-org/forrest-gump.git ~/forrest-gump
+cd ~/forrest-gump/agent
+```
+
+#### 2. Install dependencies
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate  # or .venv\Scripts\Activate on Windows
+pip install -e ".[dev,llm,graph]"
+```
+
+#### 3. Mount or access the test share
+
+```bash
+# Linux/WSL: mount the share
+sudo mount -t cifs "//fileserver/ADHealth$" /mnt/adhealth -o username=your-domain-account,password=your-password
+
+# Windows: map a drive or UNC path
+net use Z: "\\fileserver\ADHealth$" /user:your-domain-account your-password
+```
+
+#### 4. Set up config (dry-run mode)
+
+```bash
+cp agent/config/settings.example.yaml agent/config/settings.yaml
+```
+
+Edit `settings.yaml`:
+
+```yaml
+inbox: "/mnt/adhealth/test-inbox"  # or Z:\test-inbox on Windows
+state_db: "../state/adhealth.test.sqlite"
+dry_run: true                       # MUST be true for pilot
+llm:
+  provider: none                    # No Bedrock yet; use template fallback
+  mode: agent
+  max_tokens: 4096
+
+teams:
+  urgent_webhook_env: DUMMY_URL     # Not sent in dry-run, but required in config
+  digest_webhook_env: DUMMY_URL
+
+sharepoint:
+  enabled: false
+```
+
+#### 5. Validate and process bundles
+
+```bash
+# List bundles on the share:
+adhealth-agent validate /mnt/adhealth/test-inbox/ADForestHealth_test.contoso_<stamp>
+
+# Process (generate dry-run alerts):
+adhealth-agent process -c agent/config/settings.yaml --verbose
+
+# Check outbox:
+ls agent/outbox/
+# Should show urgent_*.json, findings.csv, etc.
+```
+
+#### 6. Review dry-run payloads
+
+```bash
+cat agent/outbox/urgent_*.json | head -50
+# Inspect Adaptive Card structure, finding IDs, severity levels
+```
+
+**Expected at end of Day 3:**
+- Agent reads bundles from the test share without errors
+- At least one finding is triaged as urgent/warning
+- Dry-run payloads exist in `outbox/`
+- Exit code 0
+
+### Day 4 (Optional): Bedrock Integration
+
+**Goal**: If your Bedrock and Roles Anywhere are set up, test the agent with model-generated prose.
+
+#### 1. Set up AWS credentials (Roles Anywhere)
+
+```bash
+# On the agent VM, install aws-signing-helper and configure credential_process:
+# (See your AWS docs for Roles Anywhere cert setup)
+# Validate:
+aws sts get-caller-identity --profile adhealth-role-anywhere
+```
+
+#### 2. Update config with Bedrock model
+
+```yaml
+llm:
+  provider: bedrock
+  model_id: "anthropic.claude-3-5-sonnet-20241022-v2:0"  # approved by your platform team
+  bedrock_region: us-east-1
+  bedrock_endpoint_url: ""  # or your PrivateLink endpoint
+  mode: agent
+```
+
+#### 3. Run preflight checks
+
+```bash
+adhealth-agent doctor -c agent/config/settings.yaml --online --probe-model
+# Should report OK for all checks
+```
+
+#### 4. Qualify the model (optional, but recommended)
+
+```bash
+# If you have 2 bundles available:
+adhealth-agent qualify -c agent/config/settings.yaml \
+  -b /mnt/adhealth/test-inbox/bundle1 \
+  -b /mnt/adhealth/test-inbox/bundle2 \
+  --runs 3 \
+  --out qualification/
+# Reports pass/fail and evidence (exit 0 = pass, 2 = fail)
+```
+
+#### 5. Process with Bedrock (still dry-run)
+
+```bash
+# Still in dry-run; payloads go to outbox, not Teams:
+adhealth-agent process -c agent/config/settings.yaml --verbose
+# Check outbox for narrative prose generated by Bedrock
+```
+
+#### 6. Flip to live (optional, requires approval)
+
+```yaml
+# Only after reviewing outbox and gaining approval:
+dry_run: false
+teams:
+  urgent_webhook_env: ADHEALTH_TEAMS_URGENT_WEBHOOK  # set as env var
+  digest_webhook_env: ADHEALTH_TEAMS_DIGEST_WEBHOOK
+
+sharepoint:
+  enabled: false  # or true if SharePoint is ready
+```
+
+**Expected at end of Day 4:**
+- Model-generated prose is coherent and relates to findings
+- Dry-run alerts are reviewed by security/identity team
+- Ready to flip `dry_run: false` with approval
+
+### Checklist: Test Environment Ready
+
+- [ ] Collector runs daily on test forest (tasks exist, exit code 0 or 3)
+- [ ] Bundles appear on test share (manifest.json + JSON + CSV + HTML)
+- [ ] Agent reads bundles without errors (no SHA-256 mismatch, no schema errors)
+- [ ] At least 1 urgent or warning finding is triaged
+- [ ] Dry-run payloads reviewed by identity team
+- [ ] (Optional) Bedrock model qualified with pass-rate ≥90%
+- [ ] Custom rules file created locally (`agent/config/custom_rules.yaml`, not committed)
+- [ ] Team is trained on finding IDs, suppression workflow, and reading the HTML report
+
+### Transition to Production
+
+Once the test environment is stable (2–3 weeks of data):
+
+1. **Create production share** and gMSA accounts
+2. **Schedule production collector** with signing certificate (§3a)
+3. **Move agent to production VM** with Bedrock access
+4. **Turn off dry-run** (`dry_run: false`) and set webhook URLs as machine environment variables
+5. **Schedule production agent tasks** (process hourly, digest monthly)
+6. **Configure monitoring** (alert if `heartbeat_process.json` is older than 3 hours)
+
+---
+
 ## 5. Operating it
 
 **Monitoring the monitor:** each `process`/`digest` run writes `state/heartbeat_<command>.json` (`finishedUtc`, `exitCode`, `status`). Alert in SCOM/CloudWatch/Zabbix if `heartbeat_process.json` is older than 3 hours or `status` isn't `ok`. Use `--log-format json` to ship logs to your SIEM; every line carries a `runId`.

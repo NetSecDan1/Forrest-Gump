@@ -25,11 +25,23 @@ adhealth-agent qualify -c <settings.yaml> -b <bundle> [-b <bundle>]           # 
 ```
 Regenerate the sample after collector changes: run the smoke test, copy the bundle into `samples/`, scrub host/identity, and re-export with `Export-ADHealthArtifacts` so the manifest hashes match.
 
-## Adding a check
-1. Add an `Invoke-HealthCheck -Id '<FAMILY>-NNN'` block with the exact read-only `-Command` text. Use `Add-Finding`, `Add-Metric` and `Save-DetailCsv` for object lists.
-2. For a new metric where an increase is bad, add it to `BAD_WHEN_UP` in `triage.py`.
-3. Extend `collector/tests/MockActiveDirectory/ActiveDirectory.psm1` and the smoke-test assertions.
-4. Add a row to the check catalog in `docs/ARCHITECTURE.md` §6.
+## Adding a check or metric
+See `docs/EXTENDING.md` for the full pattern. Quick summary:
+1. Add an `Invoke-HealthCheck -Id '<FAMILY>-NNN'` block with read-only `-Command` text. Use `Add-Finding`, `Add-Metric`, `Save-DetailCsv`.
+2. Mock the cmdlets in `collector/tests/MockActiveDirectory/ActiveDirectory.psm1` and add smoke-test assertions.
+3. For a new metric where an increase is bad, add it to `BAD_WHEN_UP` in `triage.py`.
+4. If the schema change is non-additive, bump version in both `Invoke-ADForestHealthReport.ps1` and `agent/adhealth_agent/__init__.py`.
+5. Add a row to the check catalog in `docs/ARCHITECTURE.md` §6.
+
+## Environment-specific rules
+Never commit custom rules to GitHub. Use `agent/config/custom_rules.example.yaml`:
+1. Copy to `agent/config/custom_rules.yaml` in your environment (add to `.gitignore`).
+2. Add suppressions (finding ID, reason, owner, expires), environment notes, and baselines.
+3. Load via the agent at startup; overrides default `policy.yaml` deterministic rules.
+4. See `docs/EXTENDING.md` for examples.
+
+## Test environment timeline
+See `docs/RUNBOOK.md` §4b: estimated 2–4 days, from prerequisites through collector (Day 1–2) → agent dry-run (Day 3) → Bedrock integration (Day 4, optional).
 
 ## Skill
 `.claude/skills/ad-health-triage` investigates a bundle interactively (validate → triage → read-only investigation plan).

@@ -9,6 +9,7 @@ venv/
 agent/state/
 agent/outbox/
 agent/config/settings.yaml
+agent/config/custom_rules.yaml  # environment-specific suppressions & rules - never commit
 
 # Collector test double materialized at test time
 collector/tests/ActiveDirectory/
